@@ -117,8 +117,8 @@ definitions = Group(comment |
 bibfile = ZeroOrMore(definitions)
 
 
-def parse_str(str):
-    return bibfile.parseString(str)
+def parse_str(string):
+    return bibfile.parseString(string)
 
 
 if __name__ == '__main__':
