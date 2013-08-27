@@ -5,6 +5,8 @@ class JournalFormatError(Exception):
 
 
 class Journal(object):
+    """A journal, identified by defining macro and abbreviated and full name, respectively.
+    """
 
     def __init__(self, macro, abbr, full):
         self.macro = macro
@@ -13,8 +15,16 @@ class Journal(object):
         
     def __str__(self):
         return self.abbr
+    
+    def strval(self, abbr=False):
+        """Formats the journal name in a human-readable way.
         
-        
+        Strips a way curly braces and various other stuff.
+        """
+        trans = str.maketrans({"{": None, "}": None, "&": None})
+        return (self.abbr if abbr else self.full).translate(trans)
+
+
 def readJournalFile(filename, separator="|", encoding="utf8"):
     """Read the journal definiton file from *filename*.
     

@@ -7,10 +7,7 @@ import jinja2
 from literature.database import LiteratureDatabase
 from literature import journals
 
-dtb = LiteratureDatabase(sys.argv[1])
-journals = journals.readJournalFile(sys.argv[2])
-for key, item in dtb.entries.items():
-    try:
-        print(item.authorLastNames(3), item["journal"] if "journal" in item else "")
-    except KeyError:
-        print(key)
+dtb = LiteratureDatabase(sys.argv[1], sys.argv[2])
+env = jinja2.Environment(loader=jinja2.FileSystemLoader("."), autoescape=True)
+template = env.get_template('example.html')
+print(template.render(entries=dtb.entries.values()))

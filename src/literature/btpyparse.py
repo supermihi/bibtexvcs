@@ -50,7 +50,7 @@ chars_no_curly.leaveWhitespace()
 chars_no_quotecurly = Regex(r'[^"{}]+')
 chars_no_quotecurly.leaveWhitespace()
 # Curly string is some stuff without curlies, or nested curly sequences
-curly_string = Forward()
+curly_string = Forward().leaveWhitespace()
 curly_item = Group(curly_string) | chars_no_curly
 curly_string << LCURLY + ZeroOrMore(curly_item) + RCURLY
 # quoted string is either just stuff within quotes, or stuff within quotes, within
