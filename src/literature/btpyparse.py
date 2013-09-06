@@ -12,7 +12,7 @@ Modified 2012 by Michael Helmling to support JabRef Comments.
 """
 
 from pyparsing import (Regex, Suppress, ZeroOrMore, Group, Optional, Forward,
-                       SkipTo, CaselessLiteral, Dict)
+                       SkipTo, CaselessLiteral, Dict, originalTextFor)
 
 
 class Macro(object):
@@ -91,9 +91,7 @@ field_value = string + ZeroOrMore(HASH + string)
 field_def = Group(field_name + EQUALS + field_value)
 entry_contents = Dict(ZeroOrMore(field_def + COMMA) + Optional(field_def))
 
-# Entry is surrounded either by parentheses or curlies
-entry = (AT + entry_type +
-         bracketed(cite_key + COMMA + entry_contents))
+entry = originalTextFor(AT + entry_type + bracketed(cite_key + COMMA + entry_contents), asString=False)
 
 # Preamble is a macro-like thing with no name
 preamble = AT + CaselessLiteral('preamble') + bracketed(field_value)

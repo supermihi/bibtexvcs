@@ -12,13 +12,13 @@ def _checkJournalMacro(entry, field, journals):
                                    format(field, entry[field].name, entry["cite key"]))
 
 
-def checkJournalMacros(database, journals, **kwargs):
+def checkJournalMacros(database):
     """Check if all journal macros defined in *database* exist in *journals*.
     """
     
     for entry in database.entries.values():
-        _checkJournalMacro(entry, "journal", journals)
-        _checkJournalMacro(entry, "booktitle", journals)
+        _checkJournalMacro(entry, "journal", database.journals)
+        _checkJournalMacro(entry, "booktitle", database.journals)
         
 
 def checkFileLinks(database, fileNames, **kwargs):
