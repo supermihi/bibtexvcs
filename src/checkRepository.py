@@ -1,12 +1,13 @@
 #!/usr/bin/python3
 
 import sys
-import literature.database, literature.journals, literature.checks
+import literature.journals, literature.checks
+import literature.bibfile
 
 if __name__ == "__main__":
     assert len(sys.argv) == 4
     
-    db = literature.database.LiteratureDatabase(sys.argv[1])
+    db = literature.bibfile.LiteratureDatabase(sys.argv[1])
     journals = literature.journals.readJournalFile(sys.argv[2])
     files = []
     with open(sys.argv[3], "rt") as f:

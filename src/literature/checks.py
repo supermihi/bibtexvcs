@@ -1,12 +1,18 @@
-from __future__ import absolute_import
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+# Copyright 2014 Michael Helmling
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 3 as
+# published by the Free Software Foundation
 
-from .btpyparse import Macro
+from literature.parser import MacroReference
 
 class ConsistencyError(Exception):
     pass
 
 def _checkJournalMacro(entry, field, journals):
-    if field in entry and isinstance(entry[field], Macro):
+    if field in entry and isinstance(entry[field], MacroReference):
         if entry[field].name not in journals:
             raise ConsistencyError("{} macro '{}' in '{}' does not exist in journal file".
                                    format(field, entry[field].name, entry["cite key"]))
@@ -16,7 +22,7 @@ def checkJournalMacros(database):
     """Check if all journal macros defined in *database* exist in *journals*.
     """
     
-    for entry in database.entries.values():
+    for entry in database.bibfile.values():
         _checkJournalMacro(entry, "journal", database.journals)
         _checkJournalMacro(entry, "booktitle", database.journals)
         
@@ -51,7 +57,7 @@ def checkMonthMacros(database, **kwargs):
         if isinstance(month, str):
             raise ValueError("Non-macro '{}' in month field of '{}' detected".
                              format(month, key))
-        elif isinstance(month, Macro):
+        elif isinstance(month, MacroReference):
             if month.name not in MONTHS:
                 raise ValueError("Month macro '{}' used in '{}' is not valid".
                                 format(month.name, key))
