@@ -1,0 +1,9 @@
+[COMP_GEOM]
+
+full = Computational Geometry -- Theory and Applications
+abbr = Comp. Geom. Theor. Appl.
+
+[DECISION_SCI]
+
+full = Decision Sciences
+abbr = Decision Sci.

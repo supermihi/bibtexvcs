@@ -30,9 +30,18 @@ class DatabaseElement:
 
 
 class MacroDefinition(DatabaseElement):
-    """Represents a macro definition (@STRING{bla={blub}}).
+    """Represents a macro definition of the form ``@STRING{bla={blub}}``.
     
-    The members C{key} and C{value} hold the corresponding elements of the definition.
+    The members :attr:`key` and :attr:`value` hold the corresponding elements of the definition.
+    
+    .. attribute:: key
+    
+        The key by which the defined macro is accessed.
+
+    .. attribute:: value
+    
+        The substitution string of the macro definition.
+    
     """
     
     def __init__(self, macro, definition):
@@ -96,14 +105,18 @@ class Entry(DatabaseElement, dict):
         return Entry(entrytype=entrytype, citekey=citekey, fields=fields, src=bibsrc)
     
     def filename(self):
-        """Returns the filename referenced in the C{file} field in JabRef format.
+        """Returns the filename referenced in the BibTeX ``file`` field in `JabRef`_'s format.
         
-        The format of the I{file} field is
-        :filename:
-        If a I{file} field is present but does not match this format, 
-        a L{DatabaseFormatError} will be raised.
+        The format of the ``file`` field is::
         
-        @returns : The filename or C{None} if there is no I{file} field in the entry.
+            :filename:
+        
+        where ``filename`` is relative to the documents directory.
+        If a ``file`` field is present but does not match this format, 
+        a :class:`DatabaseFormatError` will be raised.
+        
+        :returns: The filename or `None` if there is no ``file`` field in the entry.
+        
         """ 
         if "file" in self:
             fname = self["file"]
@@ -142,9 +155,20 @@ class Comment(DatabaseElement):
         return cls(toks["comment"])
 
     def __str__(self):
-        return "Comment({})".format(self.comment)
+        return "{}({})".format(self.__class__.__name__, self.comment)
 
-Name = namedtuple('Name', 'first middle nobility last suffix')        
+class ImplicitComment(Comment):
+    pass
+
+class Preamble(DatabaseElement):
+    def __init__(self, contents):
+        self.contents = contents
+    
+    @classmethod
+    def fromParseResult(cls, toks):
+        return cls(toks["preamble"])
+
+Name = namedtuple('Name', 'first, nobility, last, suffix')        
 
 
 class DatabaseFormatError(Exception):
@@ -154,13 +178,14 @@ class DatabaseFormatError(Exception):
 
 class BibFile(OrderedDict):
     
-    def __init__(self, filename):
-        super(OrderedDict).__init__()
+    def __init__(self, filename=None, bibstring=None):
+        super().__init__()
         self.filename = filename
         from . import parser
-        with open(filename, "rt") as bibFile:
-            bibText = bibFile.read()
-        bibParsed = parser.bibfile.parseString(bibText)
+        if filename:
+            with open(filename, "rt") as bibFile:
+                bibstring = bibFile.read()
+        bibParsed = parser.bibfile.parseString(bibstring, parseAll=False)
         self.comments = []
         self.macroDefinitions = {}
         for item in bibParsed:
@@ -170,5 +195,7 @@ class BibFile(OrderedDict):
                 self.comments.append(item)
             elif isinstance(item, MacroDefinition):
                 self.macroDefinitions[item.key] = item
+            elif isinstance(item, Preamble):
+                self.preamble = item
             else:
                 raise ValueError('Unknown item parsed: {}'.format(item))

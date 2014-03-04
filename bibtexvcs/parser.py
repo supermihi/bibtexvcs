@@ -16,7 +16,8 @@ from pyparsing import (Regex, Suppress, ZeroOrMore, OneOrMore, Group, Optional, 
                        SkipTo, CaselessLiteral, Dict, originalTextFor, delimitedList)
 
 
-from literature.bibfile import Entry, Comment, MacroReference, MacroDefinition, Name
+from bibtexvcs.bibfile import ( Entry, Comment, ImplicitComment, MacroReference,
+                                MacroDefinition, Name, Preamble )
 
 # Character literals
 LCURLY = Suppress('{')
@@ -43,7 +44,7 @@ charsNoQuotecurly.leaveWhitespace()
 # Curly string is some stuff without curlies, or nested curly sequences
 curlyString = Forward().leaveWhitespace()
 curlyItem = Group(curlyString) | charsNoCurly
-curlyString << LCURLY + ZeroOrMore(curlyItem) + RCURLY
+curlyString <<= LCURLY + ZeroOrMore(curlyItem) + RCURLY
 # quoted string is either just stuff within quotes, or stuff within quotes, within
 # which there is nested curliness
 quotedItem = Group(curlyString) | charsNoQuotecurly
@@ -81,32 +82,34 @@ string = (number | macroRef | quotedString |
 fieldValue = string + ZeroOrMore(HASH + string)
 
 namePart = Regex(r'(?!\band\b)\w+\.?') | curlyString
-nobility = Regex(r'[a-z]\w+\.?').setResultsName("nobility") # "van" etc.
+nobility = Regex(r'[a-z]\w+\.?(\s[a-z]\w+\.?)*').setResultsName("nobility") # "van" etc.
 firstName = namePart.copy().setResultsName("firstname")
 lastName = namePart.copy().setResultsName("lastname")
+spacedNames = originalTextFor(OneOrMore(namePart))
+firstNames = spacedNames.copy().setResultsName("firstname")
+lastNames = spacedNames.copy().setResultsName("lastname")
 nameSuffix = namePart.copy().setResultsName("suffix")
 
 NAME_SEP = Regex(r'and[^}]', flags=re.IGNORECASE).suppress()
 
-csName = ( Optional(nobility) + lastName + COMMA + 
+csName = ( Optional(nobility) + lastNames + COMMA + 
            Optional(nameSuffix + COMMA) + 
-           firstName + ZeroOrMore(namePart).setParseAction(lambda t: t.asList()).setResultsName("middlenames") )
+           firstNames )
 
 def labelLiteralName(toks):
     toks["lastname"] = toks[-1]
     if len(toks) > 1:
-        toks["firstname"] = toks[0]
-    if len(toks) >2:
-        toks["middlenames"] = toks[1:-1]
+        toks["firstname"] = " ".join(toks[:-1])
     return toks
 
 literalName = OneOrMore(namePart).setParseAction(labelLiteralName)
+
 def makeName(toks):
     return Name(first=toks.get("firstname"),
-                middle=toks.get("middlenames"),
                 nobility=toks.get("nobility"),
                 last=toks.get("lastname"),
                 suffix=toks.get("suffix"))
+
 name = (csName | literalName).setParseAction(makeName)
 namesList = LCURLY + delimitedList(name, NAME_SEP) + RCURLY
 
@@ -120,7 +123,8 @@ entry = originalTextFor(AT + entryType + bracketed(citeKey + COMMA + entryConten
 entry.addParseAction(Entry.fromParseResult)
 
 # Preamble is a macro-like thing with no name
-preamble = AT + CaselessLiteral('preamble') + bracketed(fieldValue)
+preamble = AT + CaselessLiteral('preamble') + bracketed(fieldValue).setResultsName("preamble")
+preamble.setParseAction(Preamble.fromParseResult)
 
 # Macros (aka strings)
 macroContents = macroDef.setResultsName("macro") + EQUALS + fieldValue.setResultsName("definition")
@@ -128,45 +132,9 @@ macroContents = macroDef.setResultsName("macro") + EQUALS + fieldValue.setResult
 
 macro = (AT + CaselessLiteral('string') + bracketed(macroContents)).setParseAction(MacroDefinition.fromParseResult)
 
-icomment = SkipTo('@').setResultsName("comment") #.setParseAction(Comment.fromParseResult)
+icomment = SkipTo('@').setResultsName("comment").setParseAction(ImplicitComment.fromParseResult)
 
 # entries are last in the list (other than the fallback) because they have
 # arbitrary start patterns that would match comments, preamble or macro
 definitions = comment | preamble | macro | entry
 bibfile = Optional(icomment) + ZeroOrMore(definitions)
-
-def parse_str(string):
-    return bibfile.parseString(string)
-
-example = """
-Some introductory text
-(implicit comment)
-
-@ARTICLE{Authors2011,
-  author = {Stefan Maria van Ruzika and von Helmling, Michael and Forney, Jr., David G. M.},
-  title = {An article about {S}omething},
-  journal = "Journal of Articles",
-  journaltitle = IEEE_J_IT,
-  year = {2011},
-  volume = {16},
-  pages = {1140--1141},
-  number = {2}
-}
-@STRING{spast = {lol lol lol}}
-
-@INCOLLECTION{DeineMutter,
-    title = {Artikel von deiner Mutter}
-}
-"""
-
-if __name__ == '__main__':
-    import sys
-    if len(sys.argv) > 1:
-        with open(sys.argv[1], "rt") as f:
-            text = f.read()
-    else:
-        text = example
-    parsed = bibfile.parseString(text, parseAll=False)
-    for entry in parsed:
-        print(type(entry))
-        print(entry)

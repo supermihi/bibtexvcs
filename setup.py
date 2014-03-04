@@ -25,7 +25,7 @@ def find_version(*file_paths):
     raise RuntimeError("Unable to find version string.")
 
 
-with open(os.path.join(here, 'DESCRIPTION.rst'), encoding='utf-8') as f:
+with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
     
@@ -49,4 +49,5 @@ setup(
     keywords='bibliography bibtex jabref',
     packages=find_packages(),
     install_requires=["pyparsing"],
+    test_suite='test'
 )
