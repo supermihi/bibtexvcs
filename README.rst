@@ -1,3 +1,3 @@
-literature package
+BibTeX VCS package
 ==================
 

@@ -12,6 +12,7 @@ from setuptools import setup, find_packages
 
 here = os.path.abspath(os.path.dirname(__file__))
 
+
 def find_version(*file_paths):
     # From PyPA's sampleproject (https://github.com/pypa/sampleproject).
     with open(os.path.join(here, *file_paths), 'r') as f:
@@ -23,15 +24,17 @@ def find_version(*file_paths):
         return version_match.group(1)
     raise RuntimeError("Unable to find version string.")
 
-with open('DESCRIPTION.rst', encoding='utf-8') as f:
+
+with open(os.path.join(here, 'DESCRIPTION.rst'), encoding='utf-8') as f:
     long_description = f.read()
+
     
 setup(
-    name='literature',
-    version=find_version('src', 'literature', '__init__.py'),
+    name='bibtexvcs',
+    version=find_version('bibtexvcs', '__init__.py'),
     description="a Python package for managing a BibTeX database and related documents",
     long_description=long_description,
-    url='http://github.com/supermihi/literature',
+    url='http://github.com/supermihi/bibtevxcs',
     author='Michael Helmling',
     author_email='michaelhelmling@posteo.de',
     classifiers=[
@@ -39,12 +42,11 @@ setup(
       'Intended Audience :: Science/Research',
       'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
       'Operating System :: OS Independent',
-      'Programming Language :: Python ::3.3',
+      'Programming Language :: Python :: 3.3',
       'Topic :: Database'
     ],
     license='GPL3',
-    keywords='literature bibtex jabref',
-    package_dir={'': 'src'},
-    packages=find_packages('src'),
+    keywords='bibliography bibtex jabref',
+    packages=find_packages(),
     install_requires=["pyparsing"],
 )
