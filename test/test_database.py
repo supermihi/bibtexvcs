@@ -15,13 +15,13 @@ from . import datadir
 class TestDatabaseConfig(unittest.TestCase):
     
     def setUp(self):
-        self.db = database.Database(join(datadir(), 'sampleDB', 'bibtexvcs.conf'))
+        self.db = database.Database(join(datadir(), 'sampleDB'))
         
     def testConfValues(self):
         self.assertEqual(self.db.name, 'Example literature database managed by the bibtex VCS package')
-        self.assertEqual(self.db.confFile, 'bibtexvcs.conf')
         directory = split(self.db.directory)
         self.assertEqual(directory[-1], 'sampleDB')
         self.assertEqual(self.db.journalsName, 'journals.txt')
         self.assertEqual(self.db.bibfileName, 'sample.bib')
+
         

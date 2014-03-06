@@ -47,7 +47,6 @@ class TestNameParsing(unittest.TestCase):
         
         name = "van Emde Boas, P."
         parsed = self.parse(name)
-        print(parsed)
         self.assertEqual(parsed.last, "Emde Boas")
         self.assertEqual(parsed.nobility, "van")
         self.assertEqual(parsed.first, "P.")

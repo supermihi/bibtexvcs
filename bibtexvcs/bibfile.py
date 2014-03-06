@@ -15,6 +15,50 @@ Most of it is generic for BibTeX, i.e. not special to the literature package.
 """
 
 
+
+
+class BibFile(OrderedDict):
+    """Object-oriented encapsulation of a BibTeX database.
+    
+    :param filename: Path of the ``.bib`` file to read.
+    :type filename: str
+    
+    :param bibstring: BibTeX database as string (as an alternative to ``filename``)
+    :type bibstring: str
+    
+    .. attribute:: macroDefinitions
+        
+        Dictionary of :class:`MacroReference` objects defined in this bib file.
+    """
+    def __init__(self, filename=None, bibstring=None):
+        super().__init__()
+        self.filename = filename
+        from . import parser
+        if filename:
+            with open(filename, "rt") as bibFile:
+                bibstring = bibFile.read()
+        bibParsed = parser.bibfile.parseString(bibstring, parseAll=True)
+        self.comments = []
+        self.macroDefinitions = OrderedDict()
+        for item in bibParsed:
+            if isinstance(item, Entry):
+                self[item.citekey] = item
+                print(item.citekey)
+            elif isinstance(item, Comment):
+                self.comments.append(item)
+            elif isinstance(item, MacroDefinition):
+                self.macroDefinitions[item.key] = item
+            elif isinstance(item, Preamble):
+                self.preamble = item
+            else:
+                raise ValueError('Unknown item parsed: {}'.format(item))
+            
+
+class DatabaseFormatError(Exception):
+    """Raised if the BibTeX database file is malformed."""
+    pass
+
+
 class DatabaseElement:
     """Base class for database elements (Entries, Comments, Macros)."""
     
@@ -79,12 +123,12 @@ class MacroReference(DatabaseElement):
         return cls(toks[0])
     
 
-class Entry(DatabaseElement, dict):
+class Entry(DatabaseElement, OrderedDict):
     """Creates a new BibTeX entry.
     """
     
     def __init__(self, entrytype, citekey, fields, src):
-        super(dict).__init__()
+        OrderedDict.__init__(self)
         self.bibsrc = src
         for key, val in fields.items():
             self[key] = val
@@ -130,17 +174,14 @@ class Entry(DatabaseElement, dict):
         """Returns the DOI URL if a "doi" field is present or None otherwise."""
         if "doi" in self:
             return "http://dx.doi.org/" + self["doi"]
-    
-    def datestr(self):
-        if "date" in self:
-            return self["date"]
-        ret = ""
-        if "month" in self:
-            ret += self.database._textify(self["month"]) + " "
-        if "year" in self:
-            ret += self["year"]
-        return ret
 
+    def authorLastNames(self, maxNames=2):
+        if 'author' not in self:
+            return ""
+        if isinstance(self['author'], str) or isinstance(self['author'], Name):
+            return self['author'].last
+        return ", ".join(author.last for author in self['author']) + (" et al." if len(self['author']) > maxNames else "")
+    
     def __str__(self):
         return "{}({}) by {}".format(self.entrytype, self.citekey, self.get("author"))
 
@@ -170,32 +211,3 @@ class Preamble(DatabaseElement):
 
 Name = namedtuple('Name', 'first, nobility, last, suffix')        
 
-
-class DatabaseFormatError(Exception):
-    """Raised if the BibTeX database file is malformed."""
-    pass
-
-
-class BibFile(OrderedDict):
-    
-    def __init__(self, filename=None, bibstring=None):
-        super().__init__()
-        self.filename = filename
-        from . import parser
-        if filename:
-            with open(filename, "rt") as bibFile:
-                bibstring = bibFile.read()
-        bibParsed = parser.bibfile.parseString(bibstring, parseAll=False)
-        self.comments = []
-        self.macroDefinitions = {}
-        for item in bibParsed:
-            if isinstance(item, Entry):
-                self[item.citekey] = item
-            elif isinstance(item, Comment):
-                self.comments.append(item)
-            elif isinstance(item, MacroDefinition):
-                self.macroDefinitions[item.key] = item
-            elif isinstance(item, Preamble):
-                self.preamble = item
-            else:
-                raise ValueError('Unknown item parsed: {}'.format(item))
