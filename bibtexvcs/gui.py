@@ -6,14 +6,14 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
-import subprocess
+import subprocess, functools
 import os.path
 from contextlib import contextmanager
 
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
 
-from bibtexvcs.vcs import MergeConflict, typeMap, AuthRequired
+from bibtexvcs.vcs import MergeConflict, typeMap, AuthError, VCSInterface
 from bibtexvcs.database import Database, Journal, JournalsFile, DatabaseFormatError, BTVCSCONF
 from bibtexvcs import config
 
@@ -21,7 +21,7 @@ def standardIcon(widget, standardPixmap):
     return widget.style().standardIcon(getattr(widget.style(), standardPixmap))
 
 class JournalsWidget(QtWidgets.QWidget):
-    
+
     def __init__(self, db):
         super().__init__()
         self.table = QtWidgets.QTableWidget(len(db.journals), 3)
@@ -30,17 +30,16 @@ class JournalsWidget(QtWidgets.QWidget):
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
-        self.table.setSizeAdjustPolicy(self.table.AdjustToContents)
-        
+
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.table)
-        
+
         newJournalButton = QtWidgets.QPushButton(self.tr("Add Journal"))
         delJournalButton = QtWidgets.QPushButton(standardIcon(self, "SP_TrashIcon"),
                                                  self.tr("Delete"))
         delJournalButton.clicked.connect(self.deleteCurrent)
         newJournalButton.clicked.connect(self.addJournal)
-        
+
         buttonLayout = QtWidgets.QHBoxLayout()
         buttonLayout.addStretch()
         buttonLayout.addWidget(newJournalButton)
@@ -49,28 +48,29 @@ class JournalsWidget(QtWidgets.QWidget):
         self.setLayout(layout)
         self.table.cellChanged.connect(self.updateJournalsFile)
         self.dontUpdate = False
-    
+
     def makeItem(self, text, editable=True):
         item = QtWidgets.QTableWidgetItem(text)
         if not editable:
             item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
         return item
-    
+
     def setDB(self, db):
         self.db = db
         self.dontUpdate = True
         self.table.clearContents()
+        self.table.setRowCount(len(self.db.journals))
         for i, journal in enumerate(self.db.journals.values()):
             self.table.setItem(i, 0, self.makeItem(journal.full))
             self.table.setItem(i, 1, self.makeItem(journal.abbr))
             self.table.setItem(i, 2, self.makeItem(journal.macro, False))
         self.dontUpdate = False
-        
+
     def deleteCurrent(self):
         currentRow = self.table.currentRow()
         self.table.removeRow(currentRow)
         self.updateJournalsFile()
-        
+
     def addJournal(self):
         macro, ok = QtWidgets.QInputDialog.getText(self.parent(),
             self.tr("New Journal's Macro"),
@@ -79,7 +79,7 @@ class JournalsWidget(QtWidgets.QWidget):
             return
         for i in range(self.table.rowCount()):
             if self.table.item(i, 2).text() == macro:
-                QtWidgets.QMessageBox.critcical(self.parent(), self.tr("Macro exists"), 
+                QtWidgets.QMessageBox.critcical(self.parent(), self.tr("Macro exists"),
                     self.tr("The macro '{}' is already chosen by another journal.").format(macro))
                 return
         index = self.table.rowCount()
@@ -90,8 +90,8 @@ class JournalsWidget(QtWidgets.QWidget):
         self.table.setItem(index, 0, self.makeItem(macro))
         self.dontUpdate = False
         self.table.setItem(index, 1, self.makeItem(macro))
-        self.table.resizeRowsToContents()
-        
+        # self.table.resizeRowsToContents()
+
     def updateJournalsFile(self):
         if self.dontUpdate:
             return
@@ -102,8 +102,8 @@ class JournalsWidget(QtWidgets.QWidget):
                                     macro=self.table.item(i, 2).text()))
         jFile = JournalsFile(journals=journals)
         jFile.write(self.db.journalsPath)
-        
-        
+
+
 class CloneDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -132,25 +132,25 @@ class CloneDialog(QtWidgets.QDialog):
         self.btbx.accepted.connect(self.accept)
         self.targetEdit.textChanged.connect(self.checkOk)
         self.setLayout(layout)
-    
+
     def checkOk(self):
         ok = all((edit.text().strip() != '' for edit in (self.targetEdit, self.urlEdit)))
         self.btbx.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(ok)
-    
+
     def chooseTarget(self):
         target = QtWidgets.QFileDialog.getExistingDirectory(self, self.tr("Choose Target"))
         if target:
             self.targetEdit.setText(target)
-        
+
 
 class BtVCSGui(QtWidgets.QWidget):
-    
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("BibTeX VCS")
-        
+
         layout = QtWidgets.QVBoxLayout()
-        
+
         dbLayout = QtWidgets.QHBoxLayout()
         self.dbLabel = QtWidgets.QLabel(self.tr("Please open a database"))
         dbSelect = QtWidgets.QPushButton(standardIcon(self, "SP_DialogOpenButton"),
@@ -161,52 +161,54 @@ class BtVCSGui(QtWidgets.QWidget):
                                         self.tr("Clone"))
         dbClone.setToolTip(self.tr("Clone a BibTeX VCS database from a remote repository"))
         dbClone.clicked.connect(self.cloneDialog)
-        
+
         dbLayout.addWidget(self.dbLabel)
         dbLayout.addStretch()
         dbLayout.addWidget(dbSelect)
         dbLayout.addWidget(dbClone)
         layout.addLayout(dbLayout)
-        
+
         self.guiComplete = False
-        
+
         btbx = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Close)
         btbx.rejected.connect(self.close)
         layout.addWidget(btbx)
-        
+
         self.setLayout(layout)
         self.db = None
+        self.resize(640, 480)
         self.show()
-        
+
     def setDB(self, db):
         self.db = db
         if not self.guiComplete:
-            index = self.layout().count() - 1 # insert everything before the btbx
+            index = self.layout().count() - 1  # insert everything before the btbx
             buttonLayout = QtWidgets.QHBoxLayout()
-            
+
             updateButton = QtWidgets.QPushButton(standardIcon(self, "SP_ArrowDown"),
                                                  self.tr("Update Repository"))
             updateButton.clicked.connect(self.updateRepository)
             buttonLayout.addWidget(updateButton)
-            
+
             openJabrefButton = QtWidgets.QPushButton(self.tr("Start JabRef"))
             openJabrefButton.clicked.connect(self.jabref)
             buttonLayout.addWidget(openJabrefButton)
-            
+
             commitButton = QtWidgets.QPushButton(standardIcon(self, "SP_ArrowUp"),
                                                  self.tr("Commit Changes"))
             commitButton.clicked.connect(self.commit)
             buttonLayout.addWidget(commitButton)
-            
+
             self.layout().insertLayout(index, buttonLayout)
-            
+
             journalsLabel = QtWidgets.QLabel(self.tr("<h3>Journals Management</h3>"))
-            self.layout().insertWidget(index+1, journalsLabel)
+            self.layout().insertWidget(index + 1, journalsLabel)
             self.journalsTable = JournalsWidget(self.db)
-            self.layout().insertWidget(index+2, self.journalsTable)
+            self.layout().insertWidget(index + 2, self.journalsTable)
             self.guiComplete = True
         else:
             self.journalsTable.setDB(db)
+        db.vcs.authCallback = functools.partial(LoginDialog.getLogin, self)
         self.dbLabel.setText(self.tr("Database location: {}").format(db.directory))
         self.setWindowTitle(self.tr("BibTeX VCS – {}").format(db.name))
 
@@ -220,12 +222,12 @@ class BtVCSGui(QtWidgets.QWidget):
             M.critical(self, self.tr('Error Opening Database'), str(e))
         except MergeConflict as mc:
             M.critical(self, self.tr("Merge conflict"), str(mc))
-        except AuthRequired as a:
+        except AuthError as a:
             M.critical(self, self.tr("Authorization Required"), str(a))
-        
+
     def reload(self):
         self.journalsTable.setDB(self.db)
-    
+
     def openDialog(self):
         ans = QtWidgets.QFileDialog.getOpenFileName(self, self.tr("Select Database"), "",
                                               self.tr("BibTeX VCS configuration files ({})".format(BTVCSCONF)))
@@ -234,24 +236,26 @@ class BtVCSGui(QtWidgets.QWidget):
             with self.catchExceptions():
                 db = Database(directory)
                 self.setDB(db)
-        
+
     def cloneDialog(self):
         dialog = CloneDialog(self)
         if dialog.exec_() == dialog.Accepted:
             try:
-                db = Database.cloneDatabase(
-                        dialog.vcsTypeChooser.currentText(),
+                db = VCSInterface.getClonedDatabase(
                         dialog.urlEdit.text(),
-                        dialog.targetEdit.text())
+                        dialog.targetEdit.text(),
+                        dialog.vcsTypeChooser.currentText(),
+                        authCallback=functools.partial(LoginDialog.getLogin, self))
                 self.setDB(db)
             except Exception as e:
                 QtWidgets.QMessageBox.critical(self, self.tr("Error Cloning Repository"),
-                                               str(e))     
-        
+                                               str(e))
+
     def updateRepository(self):
         with self.catchExceptions():
             ans = self.db.vcs.update()
             if ans:
+                self.db.makeJournalBibfiles()
                 QtWidgets.QMessageBox.information(self,
                     self.tr("Update successful"),
                     self.tr("Successfully merged remote changes"))
@@ -260,8 +264,8 @@ class BtVCSGui(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.information(self,
                     self.tr("No updates"),
                     self.tr("No updates found in remote repository"))
-        
-        
+
+
     def jabref(self):
         try:
             subprocess.Popen(["jabref", self.db.bibfilePath])
@@ -276,9 +280,16 @@ class BtVCSGui(QtWidgets.QWidget):
         self.reload()
         ans = checks.performDatabaseCheck(self.db)
         if len(ans) > 0:
-            QtWidgets.QMessageBox.critical(self, self.tr("Checks Failed"),
-                                           self.tr("Database consistency check failed:\n\n") +
-                                           "\n\n".join(str(a) for a in ans))
+            title = self.tr("Database Check Failed")
+            text = self.tr('One or more database consistency checks failed. Please fix and try '
+                           'again.')
+            detailed = "\n\n".join(str(a) for a in ans)
+            box = QtWidgets.QMessageBox(self)
+            box.setWindowTitle(title)
+            box.setText(text)
+            box.setDetailedText(detailed)
+            box.setStandardButtons(box.Close)
+            box.exec_()
             return False
         with self.catchExceptions():
             if not self.db.vcs.commit():
@@ -290,7 +301,8 @@ class BtVCSGui(QtWidgets.QWidget):
                     self.tr("Commit successful"),
                     self.tr("Successfully updated remote repository."))
                 self.reload()
-        
+                self.db.makeJournalBibfiles()
+
     def closeEvent(self, event):
         if self.db and self.db.vcs.localChanges():
             ans = QtWidgets.QMessageBox.question(self,
@@ -298,14 +310,48 @@ class BtVCSGui(QtWidgets.QWidget):
                 self.tr("Database was modified locally. Are you sure you want to quit "
                         "without committing the changes?"))
             if ans == QtWidgets.QMessageBox.Yes:
-                config.saveDefaultDatabase(self.db)
+                config.setDefaultDatabase(self.db)
                 event.accept()
             else:
                 event.ignore()
         else:
             if self.db:
-                config.saveDefaultDatabase(self.db)
+                config.setDefaultDatabase(self.db)
             event.accept()
+
+class LoginDialog(QtWidgets.QDialog):
+
+    def __init__(self, message=None, parent=None):
+        super().__init__(parent)
+
+        layout = QtWidgets.QGridLayout()
+        if message:
+            layout.addWidget(QtWidgets.QLabel(message), 0, 0, 1, 2)
+        layout.addWidget(QtWidgets.QLabel(self.tr('User:')), 1, 0)
+        layout.addWidget(QtWidgets.QLabel(self.tr('Password:')), 2, 0)
+        self.userEdit = QtWidgets.QLineEdit()
+        self.userEdit.setPlaceholderText(self.tr('enter username'))
+        layout.addWidget(self.userEdit, 1, 1)
+        self.passEdit = QtWidgets.QLineEdit()
+        self.passEdit.setPlaceholderText(self.tr('enter password'))
+        self.passEdit.setEchoMode(QtWidgets.QLineEdit.Password)
+        layout.addWidget(self.passEdit, 2, 1)
+        self.storeBox = QtWidgets.QCheckBox(self.tr("Remember login"))
+        layout.addWidget(self.storeBox, 3, 1)
+        btbx = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Cancel |
+                                          QtWidgets.QDialogButtonBox.Ok)
+        btbx.accepted.connect(self.accept)
+        btbx.rejected.connect(self.reject)
+        layout.addWidget(btbx, 4, 0, 1, 2)
+
+        self.setLayout(layout)
+
+    @staticmethod
+    def getLogin(parent=None, message=None):
+        dialog = LoginDialog(parent=parent, message=message)
+        if dialog.exec_() == dialog.Accepted:
+            return dialog.userEdit.text(), dialog.passEdit.text(), dialog.storeBox.isChecked()
+        return None
 
 app = None
 window = None
@@ -315,12 +361,10 @@ def run():
     import sys
     app = QtWidgets.QApplication(sys.argv)
     window = BtVCSGui()
-    try:
-        lastDB = config.getDefaultDatabase()
+    lastDB = config.getDefaultDatabase()
+    if lastDB:
         window.setDB(lastDB)
-    except:
-        pass
     app.exec_()
-    
+
 if __name__ == '__main__':
     run()

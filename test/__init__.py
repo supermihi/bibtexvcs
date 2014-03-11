@@ -2,7 +2,7 @@ from os.path import abspath, join, dirname
 from contextlib import contextmanager
 import tempfile, shutil
 
-from bibtexvcs import database
+from bibtexvcs import database, vcs
 
 
 def datadir():
@@ -25,6 +25,6 @@ def tmpClonedDatabase(source):
     tmpdir = tempfile.mkdtemp()
     newDir = join(tmpdir, 'btvcs')
     try:
-        yield database.Database.cloneDatabase('mercurial', source, newDir)
+        yield vcs.VCSInterface.getClonedDatabase(source, newDir, 'mercurial')
     finally:
         shutil.rmtree(tmpdir)

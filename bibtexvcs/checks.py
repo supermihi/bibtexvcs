@@ -6,7 +6,7 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
-from bibtexvcs.bibfile import MacroReference
+from bibtexvcs.bibfile import MacroReference, MONTHS
 import sys, inspect
 
 def performDatabaseCheck(database):
@@ -20,13 +20,15 @@ def performDatabaseCheck(database):
 class CheckFailed(Exception):
     pass
 
-def checkJournalMacros(database):
-    """Check if all journal macros defined in the database exist in its journals file."""
+def checkMacros(database):
+    """Check if all macros referenced in the database exist in its journals file."""
     bib = database.bibfile
     for entry in bib.values():
         for field, value in entry.items():
             if isinstance(value, MacroReference):
                 if value.name in bib.macroDefinitions or value.name in database.journals:
+                    continue
+                if value.name in MONTHS:
                     continue
                 yield CheckFailed("The macro '{m}' used for field '{f}' in bibtex "
                                   "entry '{e}' is defined neither in the database nor "
@@ -85,3 +87,10 @@ def checkMonthMacros(database):
                     yield CheckFailed("Invalid month definition '{}' in '{}'"
                                       .format(month, entry.citekey))
 
+def checkJabrefFileDirectory(database):
+    identifier = 'jabref-meta: fileDirectory:'
+    for comment in database.bibfile.comments:
+        if comment.comment.startswith(identifier):
+            if comment.comment[len(identifier):] != database.documents + ';':
+                yield CheckFailed('JabRef fileDirectory field does not coincide with '
+                                  'the configured one.')

@@ -19,17 +19,18 @@ Most of it is generic for BibTeX, i.e. not special to the literature package.
 
 class BibFile(OrderedDict):
     """Object-oriented encapsulation of a BibTeX database.
-    
+
     :param filename: Path of the ``.bib`` file to read.
     :type filename: str
-    
+
     :param bibstring: BibTeX database as string (as an alternative to ``filename``)
     :type bibstring: str
-    
+
     .. attribute:: macroDefinitions
-        
+
         Dictionary of :class:`MacroReference` objects defined in this bib file.
     """
+
     def __init__(self, filename=None, bibstring=None):
         super().__init__()
         self.filename = filename
@@ -43,7 +44,6 @@ class BibFile(OrderedDict):
         for item in bibParsed:
             if isinstance(item, Entry):
                 self[item.citekey] = item
-                print(item.citekey)
             elif isinstance(item, Comment):
                 self.comments.append(item)
             elif isinstance(item, MacroDefinition):
@@ -52,7 +52,7 @@ class BibFile(OrderedDict):
                 self.preamble = item
             else:
                 raise ValueError('Unknown item parsed: {}'.format(item))
-            
+
 
 class DatabaseFormatError(Exception):
     """Raised if the BibTeX database file is malformed."""
@@ -61,37 +61,37 @@ class DatabaseFormatError(Exception):
 
 class DatabaseElement:
     """Base class for database elements (Entries, Comments, Macros)."""
-    
+
     @classmethod
     def fromParseResult(cls, toks):
         """Creates the database element from the result of the parser.
-        
+
         This method is meant to be used in L{parser} as parseAction on the corresponding element.
-        
-        @param toks: the token list 
+
+        @param toks: the token list
         """
         raise NotImplementedError()
 
 
 class MacroDefinition(DatabaseElement):
     """Represents a macro definition of the form ``@STRING{bla={blub}}``.
-    
+
     The members :attr:`key` and :attr:`value` hold the corresponding elements of the definition.
-    
+
     .. attribute:: key
-    
+
         The key by which the defined macro is accessed.
 
     .. attribute:: value
-    
+
         The substitution string of the macro definition.
-    
+
     """
-    
+
     def __init__(self, macro, definition):
         self.key = macro
         self.value = definition
-    
+
     def __str__(self):
         return "MacroDefinition({}={})".format(self.key, self.value)
 
@@ -100,33 +100,33 @@ class MacroDefinition(DatabaseElement):
         macro = toks["macro"]
         definition = toks["definition"]
         return cls(macro, definition)
-    
+
 
 class MacroReference(DatabaseElement):
     """ Class to encapsulate undefined macro references."""
     def __init__(self, name):
         self.name = name
-    
+
     def __repr__(self):
         return 'MacroReference("{}")'.format(self.name)
-    
+
     __str__ = __repr__
-    
+
     def __eq__(self, other):
         return self.name == other.name
-    
+
     def __ne__(self, other):
         return self.name != other.name
-    
+
     @classmethod
     def fromParseResult(cls, toks):
         return cls(toks[0])
-    
+
 
 class Entry(DatabaseElement, OrderedDict):
     """Creates a new BibTeX entry.
     """
-    
+
     def __init__(self, entrytype, citekey, fields, src):
         OrderedDict.__init__(self)
         self.bibsrc = src
@@ -134,7 +134,7 @@ class Entry(DatabaseElement, OrderedDict):
             self[key] = val
         self.citekey = citekey
         self.entrytype = entrytype
-    
+
     @classmethod
     def fromParseResult(cls, toks):
         bibsrc = toks[-1]
@@ -147,21 +147,21 @@ class Entry(DatabaseElement, OrderedDict):
             else:
                 fields[key] = val
         return Entry(entrytype=entrytype, citekey=citekey, fields=fields, src=bibsrc)
-    
+
     def filename(self):
         """Returns the filename referenced in the BibTeX ``file`` field in `JabRef`_'s format.
-        
+
         The format of the ``file`` field is::
-        
+
             :filename:
-        
+
         where ``filename`` is relative to the documents directory.
-        If a ``file`` field is present but does not match this format, 
+        If a ``file`` field is present but does not match this format,
         a :class:`DatabaseFormatError` will be raised.
-        
+
         :returns: The filename or `None` if there is no ``file`` field in the entry.
-        
-        """ 
+
+        """
         if "file" in self:
             fname = self["file"]
             try:
@@ -169,7 +169,7 @@ class Entry(DatabaseElement, OrderedDict):
             except IndexError:
                 raise DatabaseFormatError('Wrong file URL format in entry "{}": '
                                           '{1}'.format(self.citekey, fname))
-    
+
     def doiURL(self):
         """Returns the DOI URL if a "doi" field is present or None otherwise."""
         if "doi" in self:
@@ -181,16 +181,16 @@ class Entry(DatabaseElement, OrderedDict):
         if isinstance(self['author'], str) or isinstance(self['author'], Name):
             return self['author'].last
         return ", ".join(author.last for author in self['author']) + (" et al." if len(self['author']) > maxNames else "")
-    
+
     def __str__(self):
         return "{}({}) by {}".format(self.entrytype, self.citekey, self.get("author"))
 
 
 class Comment(DatabaseElement):
-    
+
     def __init__(self, comment):
         self.comment = comment
-    
+
     @classmethod
     def fromParseResult(cls, toks):
         return cls(toks["comment"])
@@ -204,10 +204,13 @@ class ImplicitComment(Comment):
 class Preamble(DatabaseElement):
     def __init__(self, contents):
         self.contents = contents
-    
+
     @classmethod
     def fromParseResult(cls, toks):
         return cls(toks["preamble"])
 
-Name = namedtuple('Name', 'first, nobility, last, suffix')        
+Name = namedtuple('Name', 'first, nobility, last, suffix')
 
+MONTHS = dict((month[:3].lower(), MacroDefinition(month[:3].lower(), month)) for month in
+          ("January", "February", "March", "April", "May", "June", "July", "August",
+           "September", "October", "November", "December"))
