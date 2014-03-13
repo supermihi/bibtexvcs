@@ -50,6 +50,6 @@ setup(
     packages=find_packages(),
     install_requires=["pyparsing"],
     entry_points={ 'gui_scripts': ['btvcs = bibtexvcs.gui:run']},
-
+    package_data={'bibtexvcs' : ['defaultTemplate.html']},
     test_suite='test'
 )

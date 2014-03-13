@@ -34,16 +34,16 @@ def checkMacros(database):
                                   "entry '{e}' is defined neither in the database nor "
                                   "in the journals file."
                                   .format(f=field, m=value.name, e=entry.citekey))
-        
+
 
 def checkFileLinks(database):
     """Check that the files linked to in the database match those existing in the `documents`
     directory. Additionally, check that all documents are contained in the `documents` directory.
     """
-    
+
     dbFilesSet = set(database.referencedDocuments())
     fsFilesSet = set(database.existingDocuments())
-    
+
     if len(dbFilesSet - fsFilesSet) > 0:
         yield CheckFailed("The following file(s) are referenced in the bibtex file but do not "
                           "exist in the documents directory:\n{}"
@@ -53,11 +53,24 @@ def checkFileLinks(database):
                           "any entry in the bibtex file:\n{}"
                           .format("\n".join(fsFilesSet - dbFilesSet)))
 
+
+def checkASCIIFilenames(database):
+    """Check that all file names are ASCII. This is sensible because non-ASCII file names lead
+    to problems with most VCS systems.
+    """
+    for filename in database.existingDocuments():
+        try:
+            filename.encode('ascii')
+        except UnicodeEncodeError:
+            yield CheckFailed('The file name "{}" contains non-ASCII characters.'.format(filename))
+
+
 MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+
 
 def checkMonthMacros(database):
     """Checks that the ``month`` field only contains (proper) macros."""
-    
+
     for entry in database.bibfile.values():
         if 'month' not in entry:
             continue

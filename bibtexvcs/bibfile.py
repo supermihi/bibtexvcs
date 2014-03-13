@@ -137,6 +137,14 @@ class Entry(DatabaseElement, OrderedDict):
 
     @classmethod
     def fromParseResult(cls, toks):
+        def formatValue(value):
+            """Joins together (nested) bracketed strings."""
+            if isinstance(value, str) or not hasattr(value, '__iter__'):
+                return value
+            parts = [formatValue(v) for v in value]
+            if all(isinstance(v, str) for v in parts):
+                return "".join(parts)
+            return parts
         bibsrc = toks[-1]
         fields = {}
         for key, val in toks.items():
@@ -145,7 +153,7 @@ class Entry(DatabaseElement, OrderedDict):
             elif key == "cite key":
                 citekey = val
             else:
-                fields[key] = val
+                fields[key] = formatValue(val)
         return Entry(entrytype=entrytype, citekey=citekey, fields=fields, src=bibsrc)
 
     def filename(self):
@@ -178,9 +186,11 @@ class Entry(DatabaseElement, OrderedDict):
     def authorLastNames(self, maxNames=2):
         if 'author' not in self:
             return ""
-        if isinstance(self['author'], str) or isinstance(self['author'], Name):
-            return self['author'].last
-        return ", ".join(author.last for author in self['author']) + (" et al." if len(self['author']) > maxNames else "")
+        authors = self['author']
+        if isinstance(authors, str) or isinstance(authors, Name):
+            return str(authors)
+        return ", ".join(author.last for author in authors) \
+            + (" et al."if len(authors) > maxNames else "")
 
     def __str__(self):
         return "{}({}) by {}".format(self.entrytype, self.citekey, self.get("author"))
@@ -209,7 +219,15 @@ class Preamble(DatabaseElement):
     def fromParseResult(cls, toks):
         return cls(toks["preamble"])
 
-Name = namedtuple('Name', 'first, nobility, last, suffix')
+class Name:
+    def __init__(self, last, nobility=None, first=None, suffix=None):
+        self.first = first
+        self.nobility = nobility
+        self.last = last
+        self.suffix = suffix
+    def __str__(self):
+        return self.last
+
 
 MONTHS = dict((month[:3].lower(), MacroDefinition(month[:3].lower(), month)) for month in
           ("January", "February", "March", "April", "May", "June", "July", "August",

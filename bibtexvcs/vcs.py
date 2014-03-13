@@ -174,6 +174,11 @@ class MercurialInterface(VCSInterface):
     def commit(self, msg=None):
         if not self.localChanges():
             return False
+        if os.name != 'nt':
+            with open(self.db.bibfilePath, 'rt', encoding='UTF-8') as bibfile:
+                bib = bibfile.read()
+            with open(self.db.bibfilePath, 'wt', encoding='UTF-8', newline='\r\n') as bibfile:
+                bibfile.write(bib)
         self.update()  # merge potential remote changes before commiting
         hgOutput = self.callHg('status', '--deleted', '--no-status', self.db.documents)
         deletedDocs = hgOutput.decode(sys.getfilesystemencoding()).splitlines()

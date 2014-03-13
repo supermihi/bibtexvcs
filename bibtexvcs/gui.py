@@ -86,7 +86,11 @@ class BtVCSGui(QtWidgets.QWidget):
             openJabrefButton.clicked.connect(self.jabref)
             buttonLayout.addWidget(openJabrefButton)
             buttonLayout.addStretch()
-
+            makeHTMLButton = QtWidgets.QPushButton(self.tr("HTML"))
+            makeHTMLButton.setToolTip(self.tr('Create and open a HTML page for the database'))
+            makeHTMLButton.clicked.connect(self.makeHTML)
+            buttonLayout.addWidget(makeHTMLButton)
+            buttonLayout.addStretch()
             commitButton = QtWidgets.QPushButton(standardIcon(self, "SP_ArrowUp"),
                                                  self.tr("Commit"))
             commitButton.clicked.connect(self.runChecks)
@@ -201,10 +205,6 @@ class BtVCSGui(QtWidgets.QWidget):
                     self.tr("Update successful"),
                     self.tr("Successfully merged remote changes"))
                 self.reload()
-            else:
-                QtWidgets.QMessageBox.information(self,
-                    self.tr("No updates"),
-                    self.tr("No updates found in remote repository"))
 
     def jabref(self):
         try:
@@ -255,6 +255,14 @@ class BtVCSGui(QtWidgets.QWidget):
                     self.tr("Successfully updated remote repository."))
                 self.reload()
                 self.db.makeJournalBibfiles()
+
+    def makeHTML(self):
+        html = self.db.export()
+        import tempfile
+        with tempfile.NamedTemporaryFile('wt', delete=False) as f:
+            f.write(html)
+        import subprocess
+        subprocess.Popen(['firefox', f.name])
 
     def closeEvent(self, event):
         if self.db and self.db.vcs.localChanges():
