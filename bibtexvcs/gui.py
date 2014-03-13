@@ -209,8 +209,7 @@ class BtVCSGui(QtWidgets.QWidget):
         try:
             self.db.runJabref()
         except FileNotFoundError as e:
-            QtWidgets.QMessageBox.critical(self, self.tr('Could not start JabRef'), "{}:\n{}"
-                                           .format(e.__class__.__name__, (e)))
+            QtWidgets.QMessageBox.critical(self, self.tr('Could not start JabRef'), str(e))
 
     def runChecks(self):
         self.runAsync(self.tr("Performing database checks ..."),

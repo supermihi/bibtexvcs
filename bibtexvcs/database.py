@@ -5,6 +5,7 @@
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
+from builtins import FileNotFoundError
 
 """The :mod:`database <bibtexvcs.database>` module contains classes for managing a BibTeX VCS
 database, which consists of a config file, a bib file, a documents directory, and a journals file.
@@ -177,7 +178,16 @@ class Database:
         if exists(join(self.directory, 'jabref.prefs')):
             cmdline += ['--primp', join('jabref.prefs')]
         cmdline.append(os.curdir + os.sep + self.bibfileName)
-        return subprocess.Popen(cmdline, cwd=self.directory)
+        try:
+            return subprocess.Popen(cmdline, cwd=self.directory)
+        except FileNotFoundError as fnf:
+            if fnf.filename == 'java':
+                raise FileNotFoundError('Could not start JabRef. Please install a current Java '
+                                        'interpreter from http://java.com.')
+            elif fnf.filename == 'jabref':
+                raise FileNotFoundError('Could not start JabRef. Please install it from '
+                                        'http://jabref.sf.net.')
+            raise fnf
 
     @property
     def vcs(self):
