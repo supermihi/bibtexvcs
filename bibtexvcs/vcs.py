@@ -6,7 +6,7 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
-import subprocess
+import os, subprocess
 from bibtexvcs import config
 
 class MergeConflict(Exception):
@@ -164,16 +164,13 @@ class MercurialInterface(VCSInterface):
             cmdline += ['--config', 'auth.x.username={}'.format(username)]
         if password:
             cmdline += ['--config', 'auth.x.password={}'.format(password)]
-        print('calling ({})'.format(kwargs))
-        print(" ".join(cmdline + list(args)))
+        env = os.environ.copy()
+        env['LANG'] = 'C'
         try:
-            return subprocess.check_output(cmdline + list(args),
-                                           env={'LANG': 'C'},
+            return subprocess.check_output(cmdline + list(args), env=env,
                                            stderr=subprocess.STDOUT, **kwargs)
         except subprocess.CalledProcessError as e:
-            output = e.output.decode()
-            print('output:')
-            print(output)
+            output = e.output.decode(errors='replace')
             if "authorization required" in output:
                 raise AuthError('Authorization required for the mercurial repository.')
             if "authorization failed" in output:

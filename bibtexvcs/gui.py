@@ -6,11 +6,11 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
-import subprocess, functools
+import subprocess, functools, concurrent.futures
 import os.path
 from contextlib import contextmanager
 
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import Qt
 
 from bibtexvcs.vcs import MergeConflict, typeMap, AuthError, VCSInterface
@@ -27,13 +27,13 @@ class JournalsWidget(QtWidgets.QWidget):
         self.table = QtWidgets.QTableWidget(len(db.journals), 3)
         self.table.setHorizontalHeaderLabels([self.tr("Full"), self.tr("Abbreviated"), self.tr("Macro")])
         self.setDB(db)
-        self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
         self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
 
         layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(self.table)
-
+        journalsLabel = QtWidgets.QLabel(self.tr("<h3>Journals Management</h3>"))
         newJournalButton = QtWidgets.QPushButton(self.tr("Add Journal"))
         delJournalButton = QtWidgets.QPushButton(standardIcon(self, "SP_TrashIcon"),
                                                  self.tr("Delete"))
@@ -41,13 +41,17 @@ class JournalsWidget(QtWidgets.QWidget):
         newJournalButton.clicked.connect(self.addJournal)
 
         buttonLayout = QtWidgets.QHBoxLayout()
+        buttonLayout.addWidget(journalsLabel)
         buttonLayout.addStretch()
         buttonLayout.addWidget(newJournalButton)
         buttonLayout.addWidget(delJournalButton)
         layout.addLayout(buttonLayout)
+        layout.addWidget(self.table)
         self.setLayout(layout)
         self.table.cellChanged.connect(self.updateJournalsFile)
         self.dontUpdate = False
+        self.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(0, 0, 0, 0)
 
     def makeItem(self, text, editable=True):
         item = QtWidgets.QTableWidgetItem(text)
@@ -90,7 +94,6 @@ class JournalsWidget(QtWidgets.QWidget):
         self.table.setItem(index, 0, self.makeItem(macro))
         self.dontUpdate = False
         self.table.setItem(index, 1, self.makeItem(macro))
-        # self.table.resizeRowsToContents()
 
     def updateJournalsFile(self):
         if self.dontUpdate:
@@ -168,48 +171,73 @@ class BtVCSGui(QtWidgets.QWidget):
         dbLayout.addWidget(dbClone)
         layout.addLayout(dbLayout)
 
+        self.executor = concurrent.futures.ThreadPoolExecutor(1)
+        self.futureTimer = QtCore.QTimer(self)
+        self.futureTimer.setInterval(10)
+        self.futureTimer.timeout.connect(self.updateFuture)
         self.guiComplete = False
-
-        btbx = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Close)
-        btbx.rejected.connect(self.close)
-        layout.addWidget(btbx)
-
         self.setLayout(layout)
         self.db = None
-        self.resize(640, 480)
         self.show()
+        self.prog = QtWidgets.QProgressDialog(self)
+        self.prog.setRange(0, 0)
+        self.prog.setCancelButtonText(None)
+        self.prog.setWindowModality(Qt.WindowModal)
+        self.runAsync(self.tr("Opening last database ..."), self.loadDefault, config.getDefaultDatabase)
+
+    def runAsync(self, labelText, finishedCall, fn, *args, **kwargs):
+        self.prog.setLabelText(labelText)
+        self.prog.show()
+        self.finishedCall = finishedCall
+        self.future = self.executor.submit(fn, *args, **kwargs)
+        self.futureTimer.start()
+
+    def updateFuture(self):
+        if self.future.done():
+            self.futureTimer.stop()
+            self.prog.close()
+            if self.finishedCall:
+                self.finishedCall()
+
+    def loadDefault(self):
+        lastDB = self.future.result()
+        if lastDB:
+            self.setDB(lastDB)
 
     def setDB(self, db):
         self.db = db
         if not self.guiComplete:
-            index = self.layout().count() - 1  # insert everything before the btbx
             buttonLayout = QtWidgets.QHBoxLayout()
-
             updateButton = QtWidgets.QPushButton(standardIcon(self, "SP_ArrowDown"),
-                                                 self.tr("Update Repository"))
-            updateButton.clicked.connect(self.updateRepository)
+                                                 self.tr("Update"))
+            # updateButton.clicked.connect(self.updateRepository)
+            updateButton.clicked.connect(
+                lambda : self.runAsync(self.tr("Updating repository ..."),
+                                       self.updateRepository,
+                                       self.db.vcs.update))
             buttonLayout.addWidget(updateButton)
-
-            openJabrefButton = QtWidgets.QPushButton(self.tr("Start JabRef"))
+            buttonLayout.addStretch()
+            openJabrefButton = QtWidgets.QPushButton(self.tr("JabRef"))
             openJabrefButton.clicked.connect(self.jabref)
             buttonLayout.addWidget(openJabrefButton)
+            buttonLayout.addStretch()
 
             commitButton = QtWidgets.QPushButton(standardIcon(self, "SP_ArrowUp"),
-                                                 self.tr("Commit Changes"))
-            commitButton.clicked.connect(self.commit)
+                                                 self.tr("Commit"))
+            # commitButton.clicked.connect(self.commit)
+            commitButton.clicked.connect(
+                lambda: self.runAsync(self.tr("Performing database checks ..."),
+                                      self.evalCheckResults,
+                                      self.runChecks))
             buttonLayout.addWidget(commitButton)
-
-            self.layout().insertLayout(index, buttonLayout)
-
-            journalsLabel = QtWidgets.QLabel(self.tr("<h3>Journals Management</h3>"))
-            self.layout().insertWidget(index + 1, journalsLabel)
             self.journalsTable = JournalsWidget(self.db)
-            self.layout().insertWidget(index + 2, self.journalsTable)
+            self.layout().addWidget(self.journalsTable)
+            self.layout().addLayout(buttonLayout)
             self.guiComplete = True
         else:
             self.journalsTable.setDB(db)
         db.vcs.authCallback = functools.partial(LoginDialog.getLogin, self)
-        self.dbLabel.setText(self.tr("Database location: {}").format(db.directory))
+        self.dbLabel.setText(self.tr("Database: <i>{}</i>").format(db.directory))
         self.setWindowTitle(self.tr("BibTeX VCS – {}").format(db.name))
 
     @contextmanager
@@ -253,7 +281,7 @@ class BtVCSGui(QtWidgets.QWidget):
 
     def updateRepository(self):
         with self.catchExceptions():
-            ans = self.db.vcs.update()
+            ans = self.future.result()
             if ans:
                 self.db.makeJournalBibfiles()
                 QtWidgets.QMessageBox.information(self,
@@ -268,17 +296,19 @@ class BtVCSGui(QtWidgets.QWidget):
 
     def jabref(self):
         try:
-            subprocess.Popen(["jabref", self.db.bibfilePath])
-        except FileNotFoundError:
-            QtWidgets.QMessageBox.critical(self, self.tr('JabRef not found'),
-                self.tr('The JabRef executable was not found. '
-                        'Please install JabRef from http://jabref.sf.net.'))
+            self.db.runJabref()
+        except FileNotFoundError as e:
+            QtWidgets.QMessageBox.critical(self, self.tr('Could not start JabRef'), "{}:\n{}"
+                                           .format(e.__class__.__name__, (e)))
 
-    def commit(self):
+    def runChecks(self):
         from bibtexvcs import checks
         self.db.reload()
+        return checks.performDatabaseCheck(self.db)
+
+    def evalCheckResults(self):
         self.reload()
-        ans = checks.performDatabaseCheck(self.db)
+        ans = self.future.result()
         if len(ans) > 0:
             title = self.tr("Database Check Failed")
             text = self.tr('One or more database consistency checks failed. Please fix and try '
@@ -291,8 +321,12 @@ class BtVCSGui(QtWidgets.QWidget):
             box.setStandardButtons(box.Close)
             box.exec_()
             return False
+        self.runAsync(self.tr("Committing to remote repository ..."),
+                      self.handleCommit, self.db.vcs.commit)
+
+    def handleCommit(self):
         with self.catchExceptions():
-            if not self.db.vcs.commit():
+            if not self.future.result():
                 QtWidgets.QMessageBox.information(self,
                     self.tr("Nothing to commit"),
                     self.tr("There are no local changes."))
@@ -353,17 +387,11 @@ class LoginDialog(QtWidgets.QDialog):
             return dialog.userEdit.text(), dialog.passEdit.text(), dialog.storeBox.isChecked()
         return None
 
-app = None
-window = None
 
 def run():
-    global app, window
     import sys
     app = QtWidgets.QApplication(sys.argv)
     window = BtVCSGui()
-    lastDB = config.getDefaultDatabase()
-    if lastDB:
-        window.setDB(lastDB)
     app.exec_()
 
 if __name__ == '__main__':

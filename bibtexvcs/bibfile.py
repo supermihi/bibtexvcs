@@ -36,7 +36,7 @@ class BibFile(OrderedDict):
         self.filename = filename
         from . import parser
         if filename:
-            with open(filename, "rt") as bibFile:
+            with open(filename, "rt", encoding='UTF-8') as bibFile:
                 bibstring = bibFile.read()
         bibParsed = parser.bibfile.parseString(bibstring, parseAll=True)
         self.comments = []

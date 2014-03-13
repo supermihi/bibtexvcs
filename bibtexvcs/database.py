@@ -10,10 +10,9 @@
 database, which consists of a config file, a bib file, a documents directory, and a journals file.
 """
 
-import configparser
+import configparser, os, subprocess
 from collections import OrderedDict
 from os.path import join, exists, relpath
-import os
 
 from bibtexvcs.bibfile import BibFile, MacroReference
 from bibtexvcs.vcs import VCSInterface
@@ -36,6 +35,7 @@ class Database:
 
     The database configuration is read from the file `bbibtexvcs.conf` and from the layout of the
     directory that file resides in.
+
     .. attribute:: directory
 
         Absolute path of the root directory of the literature database.
@@ -82,7 +82,7 @@ class Database:
 
     def reload(self):
         parser = configparser.ConfigParser()
-        with open(self.configPath) as f:
+        with open(self.configPath, encoding='UTF-8') as f:
             confFile = f.read()
         # workaround because ConfigParser does not support sectionless entries
         try:
@@ -137,7 +137,7 @@ class Database:
         return docs
 
     def existingDocuments(self):
-        """Walks recursively through the `Documents` directory and return the paths of all files
+        """Walks recursively through the :attr:`documents` directory and return the paths of all files
         contained in there, relative to :attr:`documentsPath`.
         """
         for dirpath, _, filenames in os.walk(self.documentsPath):
@@ -158,6 +158,26 @@ class Database:
         """
         base = self.bibfileName[:-4]
         self.journals.writeBibfiles(base)
+
+    def runJabref(self):
+        """Tries to open this database's ``.bib`` file with `JabRef`_. Will do the following:
+
+        - If there is a file named ``jabref.jar`` in :attr:`directory`, it is run with the
+          java interpreter through ``java -jar jabref.jar``. If additionally there is a file
+          ``jabref.prefs``, JabRef`s options are imported from that file.
+        - Otherwise, the command ``jabref`` is executed. To that end, the ``jabref`` binary must
+          be in the system's ``PATH``.
+
+        :returns: The :class:`subprocess.Popen` object corresponding to JabRef process.
+        """
+        if exists(join(self.directory, 'jabref.jar')):
+            cmdline = ['java', '-jar', 'jabref.jar']
+        else:
+            cmdline = ['jabref']
+        if exists(join(self.directory, 'jabref.prefs')):
+            cmdline += ['--primp', join('jabref.prefs')]
+        cmdline.append(os.curdir + os.sep + self.bibfileName)
+        return subprocess.Popen(cmdline, cwd=self.directory)
 
     @property
     def vcs(self):
@@ -218,7 +238,7 @@ class JournalsFile(OrderedDict):
             journals = []
             parser = configparser.ConfigParser()
             try:
-                parser.read(filename)
+                parser.read(filename, encoding='UTF-8')
             except configparser.Error as error:
                 raise DatabaseFormatError('Malformed journals file:\n\n{}'.format(error))
             for section in parser.sections():
@@ -235,7 +255,7 @@ class JournalsFile(OrderedDict):
             config.add_section(journal.macro)
             config[journal.macro]['abbr'] = journal.abbr
             config[journal.macro]['full'] = journal.full
-        with open(filename, 'w') as journalfile:
+        with open(filename, 'w', encoding='UTF-8', newline='\n') as journalfile:
             config.write(journalfile)
 
     def writeBibfiles(self, basename):
@@ -247,7 +267,7 @@ class JournalsFile(OrderedDict):
         """
         for jrnlType in 'full', 'abbr':
             outFile = '{}_{}.bib'.format(basename, jrnlType)
-            with open(outFile, 'w') as bibfile:
+            with open(outFile, 'w', encoding='UTF-8') as bibfile:
                 for journal in self.values():
                     bibfile.write('@STRING{' + journal.macro + ' = {' + getattr(journal, jrnlType)
                                   + '}}\n')
