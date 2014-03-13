@@ -171,18 +171,21 @@ class Database:
 
         :returns: The :class:`subprocess.Popen` object corresponding to JabRef process.
         """
+        shell = False
         if exists(join(self.directory, 'jabref.jar')):
-            cmdline = ['java', '-jar', 'jabref.jar']
+            if os.name == 'nt':
+                cmdline = ['start', 'jabref.jar']
+            else:
+                cmdline =  ['java', '-jar', '-jabref.jar']
         else:
             cmdline = ['jabref']
         if exists(join(self.directory, 'jabref.prefs')):
             cmdline += ['--primp', join('jabref.prefs')]
         cmdline.append(os.curdir + os.sep + self.bibfileName)
         try:
-            return subprocess.Popen(cmdline, cwd=self.directory)
+            return subprocess.Popen(cmdline, shell=True, cwd=self.directory)
         except FileNotFoundError as fnf:
-            print(fnf.filename)
-            if cmdline[0] == 'java':
+            if cmdline[0] in ('java', 'start'):
                 raise FileNotFoundError('Could not start JabRef. Please install a current Java '
                                         'interpreter from http://java.com.')
             elif cmdline[0] == 'jabref':
