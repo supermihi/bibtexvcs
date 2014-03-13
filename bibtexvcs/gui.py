@@ -100,6 +100,7 @@ class BtVCSGui(QtWidgets.QWidget):
         db.vcs.authCallback = functools.partial(LoginDialog.getLogin, self)
         self.dbLabel.setText(self.tr("Database: <i>{}</i>").format(db.directory))
         self.setWindowTitle(self.tr("BibTeX VCS – {}").format(db.name))
+        self.updateRepository()
 
     def runAsync(self, labelText, finishedCall, fn, *args, **kwargs):
         """Helper function for asynchronous calls during which a progress dialog is shown. The

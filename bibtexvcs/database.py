@@ -175,15 +175,16 @@ class Database:
         if exists(join(self.directory, 'jabref.jar')):
             if os.name == 'nt':
                 cmdline = ['start', 'jabref.jar']
+                shell = True
             else:
-                cmdline =  ['java', '-jar', '-jabref.jar']
+                cmdline = ['java', '-jar', 'jabref.jar']
         else:
             cmdline = ['jabref']
         if exists(join(self.directory, 'jabref.prefs')):
             cmdline += ['--primp', join('jabref.prefs')]
         cmdline.append(os.curdir + os.sep + self.bibfileName)
         try:
-            return subprocess.Popen(cmdline, shell=True, cwd=self.directory)
+            return subprocess.Popen(cmdline, shell=shell, cwd=self.directory)
         except FileNotFoundError as fnf:
             if cmdline[0] in ('java', 'start'):
                 raise FileNotFoundError('Could not start JabRef. Please install a current Java '
