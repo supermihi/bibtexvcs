@@ -28,7 +28,7 @@ def find_version(*file_paths):
 with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
-    
+
 setup(
     name='bibtexvcs',
     version=find_version('bibtexvcs', '__init__.py'),
@@ -49,5 +49,7 @@ setup(
     keywords='bibliography bibtex jabref',
     packages=find_packages(),
     install_requires=["pyparsing"],
+    entry_points={ 'gui_scripts': ['btvcs = bibtexvcs.gui:run']},
+
     test_suite='test'
 )
