@@ -181,10 +181,11 @@ class Database:
         try:
             return subprocess.Popen(cmdline, cwd=self.directory)
         except FileNotFoundError as fnf:
-            if fnf.filename == 'java':
+            print(fnf.filename)
+            if cmdline[0] == 'java':
                 raise FileNotFoundError('Could not start JabRef. Please install a current Java '
                                         'interpreter from http://java.com.')
-            elif fnf.filename == 'jabref':
+            elif cmdline[0] == 'jabref':
                 raise FileNotFoundError('Could not start JabRef. Please install it from '
                                         'http://jabref.sf.net.')
             raise fnf
