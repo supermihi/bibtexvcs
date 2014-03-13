@@ -156,7 +156,7 @@ class Database:
         """Creates or updates the files containing journal macro definitions in full and
         abbreviated form, respectively.
         """
-        base = self.bibfileName[:-4]
+        base = self.bibfilePath[:-4]
         self.journals.writeBibfiles(base)
 
     def runJabref(self):

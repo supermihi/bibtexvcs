@@ -6,7 +6,7 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
-import subprocess, functools, concurrent.futures
+import functools, concurrent.futures
 import os.path
 from contextlib import contextmanager
 
@@ -17,8 +17,261 @@ from bibtexvcs.vcs import MergeConflict, typeMap, AuthError, VCSInterface
 from bibtexvcs.database import Database, Journal, JournalsFile, DatabaseFormatError, BTVCSCONF
 from bibtexvcs import config
 
+
 def standardIcon(widget, standardPixmap):
+    """Helper function to generate a QIcon from a standardPixmap."""
     return widget.style().standardIcon(getattr(widget.style(), standardPixmap))
+
+
+class BtVCSGui(QtWidgets.QWidget):
+    """Main window of the BibTeX VCS GUI application.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("BibTeX VCS")
+
+        layout = QtWidgets.QVBoxLayout()
+
+        dbLayout = QtWidgets.QHBoxLayout()
+        self.dbLabel = QtWidgets.QLabel(self.tr("Please open a database"))
+        dbSelect = QtWidgets.QPushButton(standardIcon(self, "SP_DialogOpenButton"),
+                                         self.tr("Open"))
+        dbSelect.setToolTip(self.tr("Open existing local checkout of a BibTeX VCS database"))
+        dbSelect.clicked.connect(self.openDialog)
+        dbClone = QtWidgets.QPushButton(standardIcon(self, "SP_DriveNetIcon"),
+                                        self.tr("Clone"))
+        dbClone.setToolTip(self.tr("Clone a BibTeX VCS database from a remote repository"))
+        dbClone.clicked.connect(self.cloneDialog)
+
+        dbLayout.addWidget(self.dbLabel)
+        dbLayout.addStretch()
+        dbLayout.addWidget(dbSelect)
+        dbLayout.addWidget(dbClone)
+        layout.addLayout(dbLayout)
+
+        self.executor = concurrent.futures.ThreadPoolExecutor(1)
+        self.futureTimer = QtCore.QTimer(self)
+        self.futureTimer.setInterval(10)
+        self.futureTimer.timeout.connect(self.updateFuture)
+        self.guiComplete = False
+        self.setLayout(layout)
+        self.db = None
+        self.show()
+        self.prog = QtWidgets.QProgressDialog(self)
+        self.prog.setRange(0, 0)
+        self.prog.setCancelButtonText(None)
+        self.prog.setWindowModality(Qt.WindowModal)
+        self.runAsync(self.tr("Opening last database ..."), self.loadDefault, config.getDefaultDatabase)
+
+    def loadDefault(self):
+        """Opens the default database as defined in :mod:`bibtexvcs`'s config file. If no default
+        database is configured, nothing happens.
+        """
+        lastDB = self.future.result()
+        if lastDB:
+            self.setDB(lastDB)
+
+    def setDB(self, db):
+        """Set the current database to `db`."""
+        self.db = db
+        if not self.guiComplete:
+            buttonLayout = QtWidgets.QHBoxLayout()
+            updateButton = QtWidgets.QPushButton(standardIcon(self, "SP_ArrowDown"),
+                                                 self.tr("Update"))
+            updateButton.clicked.connect(self.updateRepository)
+            buttonLayout.addWidget(updateButton)
+            buttonLayout.addStretch()
+            openJabrefButton = QtWidgets.QPushButton(self.tr("JabRef"))
+            openJabrefButton.clicked.connect(self.jabref)
+            buttonLayout.addWidget(openJabrefButton)
+            buttonLayout.addStretch()
+
+            commitButton = QtWidgets.QPushButton(standardIcon(self, "SP_ArrowUp"),
+                                                 self.tr("Commit"))
+            commitButton.clicked.connect(self.runChecks)
+            buttonLayout.addWidget(commitButton)
+            self.journalsTable = JournalsWidget(self.db)
+            self.layout().addWidget(self.journalsTable)
+            self.layout().addLayout(buttonLayout)
+            self.guiComplete = True
+        else:
+            self.journalsTable.setDB(db)
+        db.vcs.authCallback = functools.partial(LoginDialog.getLogin, self)
+        self.dbLabel.setText(self.tr("Database: <i>{}</i>").format(db.directory))
+        self.setWindowTitle(self.tr("BibTeX VCS – {}").format(db.name))
+
+    def runAsync(self, labelText, finishedCall, fn, *args, **kwargs):
+        """Helper function for asynchronous calls during which a progress dialog is shown. The
+        progress dialog will be labelled by `labelText`.
+
+        `finishedCall` is an optional callable that will be called after `fn` has finished running.
+
+        `fn` is the callable to be run asynchronously. Additional arguments are passed to this
+        function.
+        """
+        self.prog.setLabelText(labelText)
+        self.prog.show()
+        self.finishedCall = finishedCall
+        self.future = self.executor.submit(fn, *args, **kwargs)
+        self.futureTimer.start()
+
+    def updateFuture(self):
+        if self.future.done():
+            self.futureTimer.stop()
+            self.prog.close()
+            if self.finishedCall:
+                self.finishedCall()
+
+    @contextmanager
+    def catchExceptions(self, onAuthEntered=None):
+        M = QtWidgets.QMessageBox
+        try:
+            yield
+            return True
+        except DatabaseFormatError as e:
+            M.critical(self, self.tr('Error Opening Database'), str(e))
+        except MergeConflict as mc:
+            M.critical(self, self.tr("Merge conflict"), str(mc))
+        except AuthError as a:
+            if onAuthEntered is not None:
+                ans = LoginDialog.getLogin(self, str(a))
+                if ans:
+                    self.db.vcs.username, self.db.vcs.password, store = ans
+                    if store:
+                        config.setAuthInformation(self.db)
+                    onAuthEntered()
+                    return
+            M.critical(self, self.tr("Authorization Required"), str(a))
+
+    def reload(self):
+        self.journalsTable.setDB(self.db)
+
+    def openDialog(self):
+        ans = QtWidgets.QFileDialog.getOpenFileName(self, self.tr("Select Database"), "",
+                                              self.tr("BibTeX VCS configuration files ({})".format(BTVCSCONF)))
+        if len(ans[0]) > 0:
+            directory = os.path.dirname(ans[0])
+            with self.catchExceptions():
+                db = Database(directory)
+                self.setDB(db)
+
+    def cloneDialog(self):
+        self.cloneDialog = CloneDialog(self)
+        if self.cloneDialog.exec_() == self.cloneDialog.Accepted:
+            self.login = dict()
+            self.storeLogin = False
+            self.cloneDB_init()
+
+    def cloneDB_init(self):
+        self.runAsync(self.tr("Cloning database ... "),
+                      self.cloneDB_handle,
+                      VCSInterface.getClonedDatabase,
+                      self.cloneDialog.urlEdit.text(),
+                      self.cloneDialog.targetEdit.text(),
+                      self.cloneDialog.vcsTypeChooser.currentText(),
+                      **self.login)
+
+    def cloneDB_handle(self):
+        with self.catchExceptions():
+            try:
+                self.setDB(self.future.result())
+                if self.storeLogin:
+                    config.setAuthInformation(self.db)
+            except AuthError as e:
+                ans = LoginDialog.getLogin(self, str(e))
+                if ans:
+                    self.login['username'], self.login['password'], self.storeLogin = ans
+                    self.cloneDB_init()
+                else:
+                    raise e
+
+    def updateRepository(self):
+        self.runAsync(self.tr("Updating repository ..."),
+                      self.update_handle,
+                      self.db.vcs.update)
+
+    def update_handle(self):
+        with self.catchExceptions(onAuthEntered=self.updateRepository):
+            changed = self.future.result()
+            if changed:
+                self.db.makeJournalBibfiles()
+                QtWidgets.QMessageBox.information(self,
+                    self.tr("Update successful"),
+                    self.tr("Successfully merged remote changes"))
+                self.reload()
+            else:
+                QtWidgets.QMessageBox.information(self,
+                    self.tr("No updates"),
+                    self.tr("No updates found in remote repository"))
+
+    def jabref(self):
+        try:
+            self.db.runJabref()
+        except FileNotFoundError as e:
+            QtWidgets.QMessageBox.critical(self, self.tr('Could not start JabRef'), "{}:\n{}"
+                                           .format(e.__class__.__name__, (e)))
+
+    def runChecks(self):
+        self.runAsync(self.tr("Performing database checks ..."),
+                      self.runChecks_handle,
+                      self.runChecks_init)
+
+    def runChecks_init(self):
+        from bibtexvcs import checks
+        self.db.reload()
+        return checks.performDatabaseCheck(self.db)
+
+    def runChecks_handle(self):
+        self.reload()
+        ans = self.future.result()
+        if len(ans) > 0:
+            title = self.tr("Database Check Failed")
+            text = self.tr('One or more database consistency checks failed. Please fix and try '
+                           'again.')
+            detailed = "\n\n".join(str(a) for a in ans)
+            box = QtWidgets.QMessageBox(self)
+            box.setWindowTitle(title)
+            box.setText(text)
+            box.setDetailedText(detailed)
+            box.setStandardButtons(box.Close)
+            box.exec_()
+        else:
+            self.commit_init()
+
+    def commit_init(self):
+        self.runAsync(self.tr("Committing to remote repository ..."),
+                      self.commit_handle, self.db.vcs.commit)
+
+    def commit_handle(self):
+        with self.catchExceptions(onAuthEntered=self.commit_init):
+            if not self.future.result():
+                QtWidgets.QMessageBox.information(self,
+                    self.tr("Nothing to commit"),
+                    self.tr("There are no local changes."))
+            else:
+                QtWidgets.QMessageBox.information(self,
+                    self.tr("Commit successful"),
+                    self.tr("Successfully updated remote repository."))
+                self.reload()
+                self.db.makeJournalBibfiles()
+
+    def closeEvent(self, event):
+        if self.db and self.db.vcs.localChanges():
+            ans = QtWidgets.QMessageBox.question(self,
+                self.tr("Local changes present"),
+                self.tr("Database was modified locally. Are you sure you want to quit "
+                        "without committing the changes?"))
+            if ans == QtWidgets.QMessageBox.Yes:
+                config.setDefaultDatabase(self.db)
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            if self.db:
+                config.setDefaultDatabase(self.db)
+            event.accept()
+
 
 class JournalsWidget(QtWidgets.QWidget):
 
@@ -145,213 +398,6 @@ class CloneDialog(QtWidgets.QDialog):
         if target:
             self.targetEdit.setText(target)
 
-
-class BtVCSGui(QtWidgets.QWidget):
-
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("BibTeX VCS")
-
-        layout = QtWidgets.QVBoxLayout()
-
-        dbLayout = QtWidgets.QHBoxLayout()
-        self.dbLabel = QtWidgets.QLabel(self.tr("Please open a database"))
-        dbSelect = QtWidgets.QPushButton(standardIcon(self, "SP_DialogOpenButton"),
-                                         self.tr("Open"))
-        dbSelect.setToolTip(self.tr("Open existing local checkout of a BibTeX VCS database"))
-        dbSelect.clicked.connect(self.openDialog)
-        dbClone = QtWidgets.QPushButton(standardIcon(self, "SP_DriveNetIcon"),
-                                        self.tr("Clone"))
-        dbClone.setToolTip(self.tr("Clone a BibTeX VCS database from a remote repository"))
-        dbClone.clicked.connect(self.cloneDialog)
-
-        dbLayout.addWidget(self.dbLabel)
-        dbLayout.addStretch()
-        dbLayout.addWidget(dbSelect)
-        dbLayout.addWidget(dbClone)
-        layout.addLayout(dbLayout)
-
-        self.executor = concurrent.futures.ThreadPoolExecutor(1)
-        self.futureTimer = QtCore.QTimer(self)
-        self.futureTimer.setInterval(10)
-        self.futureTimer.timeout.connect(self.updateFuture)
-        self.guiComplete = False
-        self.setLayout(layout)
-        self.db = None
-        self.show()
-        self.prog = QtWidgets.QProgressDialog(self)
-        self.prog.setRange(0, 0)
-        self.prog.setCancelButtonText(None)
-        self.prog.setWindowModality(Qt.WindowModal)
-        self.runAsync(self.tr("Opening last database ..."), self.loadDefault, config.getDefaultDatabase)
-
-    def runAsync(self, labelText, finishedCall, fn, *args, **kwargs):
-        self.prog.setLabelText(labelText)
-        self.prog.show()
-        self.finishedCall = finishedCall
-        self.future = self.executor.submit(fn, *args, **kwargs)
-        self.futureTimer.start()
-
-    def updateFuture(self):
-        if self.future.done():
-            self.futureTimer.stop()
-            self.prog.close()
-            if self.finishedCall:
-                self.finishedCall()
-
-    def loadDefault(self):
-        lastDB = self.future.result()
-        if lastDB:
-            self.setDB(lastDB)
-
-    def setDB(self, db):
-        self.db = db
-        if not self.guiComplete:
-            buttonLayout = QtWidgets.QHBoxLayout()
-            updateButton = QtWidgets.QPushButton(standardIcon(self, "SP_ArrowDown"),
-                                                 self.tr("Update"))
-            # updateButton.clicked.connect(self.updateRepository)
-            updateButton.clicked.connect(
-                lambda : self.runAsync(self.tr("Updating repository ..."),
-                                       self.updateRepository,
-                                       self.db.vcs.update))
-            buttonLayout.addWidget(updateButton)
-            buttonLayout.addStretch()
-            openJabrefButton = QtWidgets.QPushButton(self.tr("JabRef"))
-            openJabrefButton.clicked.connect(self.jabref)
-            buttonLayout.addWidget(openJabrefButton)
-            buttonLayout.addStretch()
-
-            commitButton = QtWidgets.QPushButton(standardIcon(self, "SP_ArrowUp"),
-                                                 self.tr("Commit"))
-            # commitButton.clicked.connect(self.commit)
-            commitButton.clicked.connect(
-                lambda: self.runAsync(self.tr("Performing database checks ..."),
-                                      self.evalCheckResults,
-                                      self.runChecks))
-            buttonLayout.addWidget(commitButton)
-            self.journalsTable = JournalsWidget(self.db)
-            self.layout().addWidget(self.journalsTable)
-            self.layout().addLayout(buttonLayout)
-            self.guiComplete = True
-        else:
-            self.journalsTable.setDB(db)
-        db.vcs.authCallback = functools.partial(LoginDialog.getLogin, self)
-        self.dbLabel.setText(self.tr("Database: <i>{}</i>").format(db.directory))
-        self.setWindowTitle(self.tr("BibTeX VCS – {}").format(db.name))
-
-    @contextmanager
-    def catchExceptions(self):
-        M = QtWidgets.QMessageBox
-        try:
-            yield
-            return True
-        except DatabaseFormatError as e:
-            M.critical(self, self.tr('Error Opening Database'), str(e))
-        except MergeConflict as mc:
-            M.critical(self, self.tr("Merge conflict"), str(mc))
-        except AuthError as a:
-            M.critical(self, self.tr("Authorization Required"), str(a))
-
-    def reload(self):
-        self.journalsTable.setDB(self.db)
-
-    def openDialog(self):
-        ans = QtWidgets.QFileDialog.getOpenFileName(self, self.tr("Select Database"), "",
-                                              self.tr("BibTeX VCS configuration files ({})".format(BTVCSCONF)))
-        if len(ans[0]) > 0:
-            directory = os.path.dirname(ans[0])
-            with self.catchExceptions():
-                db = Database(directory)
-                self.setDB(db)
-
-    def cloneDialog(self):
-        dialog = CloneDialog(self)
-        if dialog.exec_() == dialog.Accepted:
-            try:
-                db = VCSInterface.getClonedDatabase(
-                        dialog.urlEdit.text(),
-                        dialog.targetEdit.text(),
-                        dialog.vcsTypeChooser.currentText(),
-                        authCallback=functools.partial(LoginDialog.getLogin, self))
-                self.setDB(db)
-            except Exception as e:
-                QtWidgets.QMessageBox.critical(self, self.tr("Error Cloning Repository"),
-                                               str(e))
-
-    def updateRepository(self):
-        with self.catchExceptions():
-            ans = self.future.result()
-            if ans:
-                self.db.makeJournalBibfiles()
-                QtWidgets.QMessageBox.information(self,
-                    self.tr("Update successful"),
-                    self.tr("Successfully merged remote changes"))
-                self.reload()
-            else:
-                QtWidgets.QMessageBox.information(self,
-                    self.tr("No updates"),
-                    self.tr("No updates found in remote repository"))
-
-
-    def jabref(self):
-        try:
-            self.db.runJabref()
-        except FileNotFoundError as e:
-            QtWidgets.QMessageBox.critical(self, self.tr('Could not start JabRef'), "{}:\n{}"
-                                           .format(e.__class__.__name__, (e)))
-
-    def runChecks(self):
-        from bibtexvcs import checks
-        self.db.reload()
-        return checks.performDatabaseCheck(self.db)
-
-    def evalCheckResults(self):
-        self.reload()
-        ans = self.future.result()
-        if len(ans) > 0:
-            title = self.tr("Database Check Failed")
-            text = self.tr('One or more database consistency checks failed. Please fix and try '
-                           'again.')
-            detailed = "\n\n".join(str(a) for a in ans)
-            box = QtWidgets.QMessageBox(self)
-            box.setWindowTitle(title)
-            box.setText(text)
-            box.setDetailedText(detailed)
-            box.setStandardButtons(box.Close)
-            box.exec_()
-            return False
-        self.runAsync(self.tr("Committing to remote repository ..."),
-                      self.handleCommit, self.db.vcs.commit)
-
-    def handleCommit(self):
-        with self.catchExceptions():
-            if not self.future.result():
-                QtWidgets.QMessageBox.information(self,
-                    self.tr("Nothing to commit"),
-                    self.tr("There are no local changes."))
-            else:
-                QtWidgets.QMessageBox.information(self,
-                    self.tr("Commit successful"),
-                    self.tr("Successfully updated remote repository."))
-                self.reload()
-                self.db.makeJournalBibfiles()
-
-    def closeEvent(self, event):
-        if self.db and self.db.vcs.localChanges():
-            ans = QtWidgets.QMessageBox.question(self,
-                self.tr("Local changes present"),
-                self.tr("Database was modified locally. Are you sure you want to quit "
-                        "without committing the changes?"))
-            if ans == QtWidgets.QMessageBox.Yes:
-                config.setDefaultDatabase(self.db)
-                event.accept()
-            else:
-                event.ignore()
-        else:
-            if self.db:
-                config.setDefaultDatabase(self.db)
-            event.accept()
 
 class LoginDialog(QtWidgets.QDialog):
 

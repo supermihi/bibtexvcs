@@ -35,11 +35,6 @@ class VCSInterface(metaclass=VCSMeta):
     .. attribute:: password
 
         Optional password for authentication.
-    .. attribute:: authCallback
-
-        Optional authentication callback function. If set, :attr:`authCallback` must be a function
-        returning either ``None`` (corresponding to user abort) or a tuple reflecting the entered
-        `username` and `password` information.
     """
     def __init__(self, db):
         self.db = db
@@ -48,7 +43,6 @@ class VCSInterface(metaclass=VCSMeta):
             self.username, self.password = ans
         else:
             self.username = self.password = None
-        self.authCallback = None
 
     @property
     def root(self):
@@ -95,33 +89,22 @@ class VCSInterface(metaclass=VCSMeta):
             raise KeyError("No VCS type '{}' is known".format(db.vcsType))
 
     @classmethod
-    def clone(cls, url, target, authCallback=None):
+    def clone(cls, url, target):
         """Clones a remote repository.
 
         :param url: The remote repository URL.
         :type url: str
         :param target: The target directory.
         :type target: str
-        :param authCallback: Optional function that obtains login information from the
-          user, returning a triple ``(username, password, storeLogin)``.
-        :type authCallback: callable
-        :returns: Either ``None`` or the triple ``(username, password, storeLogin)`` where
-          ``username`` is the user name, ``password`` is the password and ``storeLogin`` is a
-          boolean indicating whether the given login should be stored.
         """
         raise NotImplementedError()
 
     @staticmethod
-    def getClonedDatabase(url, target, vcsType, authCallback=None):
+    def getClonedDatabase(url, target, vcsType, username=None, password=None):
         vcsCls = typeMap[vcsType]
-        login = vcsCls.clone(url, target, authCallback)
+        vcsCls.clone(url, target, username=username, password=password)
         from bibtexvcs.database import Database
-        db = Database(target)
-        if login is not None:
-            db.vcs.username, db.vcs.password, store = login
-            if store:
-                config.setAuthInformation(db)
-        return db
+        return Database(target)
 
 
 class MercurialInterface(VCSInterface):
@@ -137,25 +120,8 @@ class MercurialInterface(VCSInterface):
     def callHg(self, *args):
         """Calls the ``hg`` script in the database directory with the given arguments.
         """
-        kwargs = dict(cwd=self.root)
-        if self.username:
-            kwargs['username'] = self.username
-        if self.password:
-            kwargs['password'] = self.password
-        if self.authCallback is None:
-            return MercurialInterface._callHg(*args, **kwargs)
-        while True:
-            try:
-                return self._callHg(*args, **kwargs)
-            except AuthError as e:
-                ans = self.authCallback(message=str(e))
-                if ans is None:
-                    raise e
-                self.username, self.password, store = ans
-                kwargs['username'] = self.username
-                kwargs['password'] = self.password
-                if store:
-                    config.setAuthInformation(self.db)
+        return MercurialInterface._callHg(*args, username=self.username, password=self.password,
+                                          cwd=self.root)
 
     @classmethod
     def _callHg(cls, *args, username=None, password=None, **kwargs):
@@ -224,24 +190,8 @@ class MercurialInterface(VCSInterface):
         return True
 
     @classmethod
-    def clone(cls, url, target, authCallback=None):
-        if authCallback is None:
-            cls._callHg('clone', url, target)
-            return None
-        ans = None
-        kwargs = dict()
-        while True:
-            try:
-                print(kwargs)
-                cls._callHg('clone', url, target, **kwargs)
-                return ans
-            except AuthError as e:
-                ans = authCallback(message=str(e))
-                if ans is None:
-                    raise e
-                kwargs['username'] = ans[0]
-                kwargs['password'] = ans[1]
-
+    def clone(cls, url, target, username=None, password=None):
+        cls._callHg('clone', url, target, username=username, password=password)
 
 class NoVCSInterface(VCSInterface):
     """Dummy VCS interface for the case of a database that is not under version control."""
