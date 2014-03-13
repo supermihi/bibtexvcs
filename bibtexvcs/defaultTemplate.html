@@ -1,0 +1,142 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<title>{{database.name}}</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
+<script>
+function toggleInfo(key, cls) {
+    $('.'+cls+'[entry="'+key+'"]').toggleClass('noshow');
+}
+</script>
+<style type="text/css">
+	body {
+	   background-color: white;
+	   font-family: Myriad Pro, sans-serif;
+	   font-size: 14px;
+	   color: #2E2E2E;
+	   margin: auto 2em;
+	}
+	
+	form#quicksearch { width: auto; border-style: solid; border-color: gray; border-width: 1px 0px; padding: 0.7em 0.5em; display:none; position:relative; }
+	span#searchstat {padding-left: 1em;}
+	
+	div#settings { margin-top:0.7em; /* border-bottom: 1px transparent solid; background-color: #efefef; border: 1px grey solid; */ }
+	div#settings ul {margin: 0; padding: 0; }
+	div#settings li {margin: 0; padding: 0 1em 0 0; display: inline; list-style: none; }
+	div#settings li + li { border-left: 2px #efefef solid; padding-left: 0.5em;}
+	div#settings input { margin-bottom: 0px;}
+	
+	div#settings.hidden {display:none;}
+	
+	#showsettings { border: 1px grey solid; padding: 0 0.5em; float:right; line-height: 1.6em; text-align: right; }
+	#showsettings:hover { cursor: pointer; }
+	
+	.invalidsearch { background-color: red; }
+	input[type="button"] { background-color: #efefef; border: 1px #2E2E2E solid;}
+	
+	table {
+	   width: 100%;
+	   empty-cells: show;
+	   border-spacing: 0em 0.2em;
+	   margin: 1em 0em;
+	   border-style: none;
+	}
+	th, td { border: 1px gray solid; border-width: 1px 1px; padding: 0.5em; vertical-align: top; text-align: left; }
+	th { background-color: #efefef; }
+	td + td, th + th { border-left: none; }
+	
+	td a { color: navy; text-decoration: none; }
+	td a:hover  { text-decoration: underline; }
+	
+	tr.noshow { display: none;}
+	tr.highlight td { background-color: #EFEFEF; border-top: 2px #2E2E2E solid; font-weight: bold; }
+	tr.abstract td, tr.bibsrc td { background-color: #EFEFEF; text-align: justify; border-bottom: 2px #2E2E2E solid; }
+	tr.nextshow td { border-bottom: 1px gray solid; }
+	
+	tr.bibsrc pre { width: 100%; overflow: auto; white-space: pre-wrap;}
+	p.infolinks { margin: 0.3em 0em 0em 0em; padding: 0px; }
+	
+	@media print {
+	    p.infolinks, #qs_settings, #quicksearch, t.bibtex { display: none !important; }
+	    tr { page-break-inside: avoid; }
+    }
+</style>
+</head>
+<body>
+	<h1>
+		{{database.name}} - Generated HTML Output
+	</h1>
+	<form action="" id="quicksearch">
+		<input type="text" id="qs_field" autocomplete="off"
+			placeholder="Type to search..." /> <input type="button"
+			onclick="clearQS()" value="clear" /> <span id="searchstat">Matching
+			entries: <span id="stat">0</span>
+		</span>
+		<div id="showsettings" onclick="toggleSettings()">settings...</div>
+		<div id="settings" class="hidden">
+			<ul>
+				<li><input type="checkbox" class="search_setting"
+					id="opt_searchAbs" onchange="updateSetting(this)"><label
+					for="opt_searchAbs"> include abstract</label></li>
+				<li><input type="checkbox" class="search_setting"
+					id="opt_searchRev" onchange="updateSetting(this)"><label
+					for="opt_searchRev"> include review</label></li>
+				<li><input type="checkbox" class="search_setting"
+					id="opt_useRegExp" onchange="updateSetting(this)"><label
+					for="opt_useRegExp"> use RegExp</label></li>
+				<li><input type="checkbox" class="search_setting"
+					id="opt_noAccents" onchange="updateSetting(this)"><label
+					for="opt_noAccents"> ignore accents</label></li>
+			</ul>
+		</div>
+	</form>
+	<table id="qs_table" border="1">
+		<thead>
+			<tr>
+				<th width="25%">Author</th>
+				<th width="30%">Title</th>
+				<th width="5%">Date</th>
+				<th width="20%">Journal/Proceedings</th>
+				<th width="5%">Reftype</th>
+				<th width="3%">DOI/URL</th>
+				<th width="6%">Owner</th>
+				<th width="6%">Printout</th>
+			</tr>
+		</thead>
+		<tbody>
+		{% for citekey, entry in database.bibfile.items() %}
+		  <tr id="{{entry.citekey|md5}}" class="entry">
+            <td>{{entry.authorLastNames(2)}}</td>
+            <td>
+              {% if entry["file"] %}<a href="/literature/Documents/{{entry.filename()}}">{% endif %}
+              {{entry["title"]}}
+              {% if entry["file"] %}</a>{% endif %}
+              <p class="infolinks">
+                <a href="javaScript:toggleInfo('{{entry.citekey}}', 'bibsrc')">[BibTeX]</a>
+                {% if entry["abstract"] %} <a href="javaScript:toggleInfo('{{entry.citekey}}', 'abstract')">[Abstract]</a>{% endif %}
+              </p>
+            <td>{{entry["date"] or entry["year"]}}</td>
+            <td>{{database.strval(entry["journal"])}}</td>
+            <td>{{entry.entrytype}}</td>
+            <td>{% if entry["doi"] %}
+                  <a href="{{entry.doiURL()}}">DOI</a>
+                {% endif %}
+                {% if entry["url"] %}
+                  <a href="{{entry['url']}}">URL</a>
+                {% endif %}
+            </td>
+            <td>{{entry["owner"]}}</td>
+            <td>{{entry["printout"]}}</td>
+          </tr>
+          <tr entry="{{entry.citekey}}" class="bibsrc noshow"><td colspan=8><pre>{{entry.bibsrc|e}}</pre></td></tr>
+          {% if entry["abstract"] %}
+              <tr entry="{{entry.citekey}}" class="abstract noshow"><td colspan=8>{{entry["abstract"]}}</td></tr>
+          {% endif %}
+          
+          
+		{% endfor %}
+		</tbody>
+	</table>
+</body>
+</html>
