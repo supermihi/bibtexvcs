@@ -6,7 +6,7 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
-import os, subprocess
+import os, subprocess, sys
 from bibtexvcs import config
 
 class MergeConflict(Exception):
@@ -176,7 +176,7 @@ class MercurialInterface(VCSInterface):
             return False
         self.update()  # merge potential remote changes before commiting
         hgOutput = self.callHg('status', '--deleted', '--no-status', self.db.documents)
-        deletedDocs = hgOutput.decode().splitlines()
+        deletedDocs = hgOutput.decode(sys.getfilesystemencoding()).splitlines()
         if len(deletedDocs) > 0:
             self.callHg('remove', *deletedDocs)
         hgOutput = self.callHg('status', '--unknown', '--no-status', self.db.documents)
