@@ -103,6 +103,8 @@ class BtVCSGui(QtWidgets.QWidget):
         else:
             self.journalsTable.setDB(db)
         self.linkButton.setVisible(db.publicLink is not None)
+        if db.publicLink:
+            self.linkButton.setToolTip(db.publicLink)
         db.vcs.authCallback = functools.partial(LoginDialog.getLogin, self)
         self.dbLabel.setText(self.tr("Database: <i>{}</i>").format(db.directory))
         self.setWindowTitle(self.tr("BibTeX VCS – {}").format(db.name))
@@ -227,6 +229,18 @@ class BtVCSGui(QtWidgets.QWidget):
         except FileNotFoundError as e:
             QtWidgets.QMessageBox.critical(self, self.tr('Could not start JabRef'), str(e))
 
+    def makeHTML(self):
+        html = self.db.export()
+        import tempfile
+        with tempfile.NamedTemporaryFile('wt', suffix='.html', delete=False) as f:
+            f.write(html)
+        import subprocess
+        subprocess.Popen(['firefox', f.name])
+
+    def publicHTML(self):
+        import webbrowser
+        webbrowser.open(self.db.publicLink)
+
     def runChecks(self):
         self.runAsync(self.tr("Performing database checks ..."),
                       self.runChecks_handle,
@@ -270,14 +284,6 @@ class BtVCSGui(QtWidgets.QWidget):
                     self.tr("Successfully updated remote repository."))
                 self.reload()
                 self.db.makeJournalBibfiles()
-
-    def makeHTML(self):
-        html = self.db.export()
-        import tempfile
-        with tempfile.NamedTemporaryFile('wt', suffix='.html', delete=False) as f:
-            f.write(html)
-        import subprocess
-        subprocess.Popen(['firefox', f.name])
 
     def closeEvent(self, event):
         if self.db and self.db.vcs.localChanges():
