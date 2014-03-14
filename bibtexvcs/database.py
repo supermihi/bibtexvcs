@@ -5,7 +5,6 @@
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
-from builtins import FileNotFoundError
 
 """The :mod:`database <bibtexvcs.database>` module contains classes for managing a BibTeX VCS
 database, which consists of a config file, a bib file, a documents directory, and a journals file.
@@ -187,11 +186,9 @@ class Database:
             return subprocess.Popen(cmdline, shell=shell, cwd=self.directory)
         except FileNotFoundError as fnf:
             if cmdline[0] in ('java', 'start'):
-                raise FileNotFoundError('Could not start JabRef. Please install a current Java '
-                                        'interpreter from http://java.com.')
+                fnf.strerror = 'Please install Java from http://java.com.'
             elif cmdline[0] == 'jabref':
-                raise FileNotFoundError('Could not start JabRef. Please install it from '
-                                        'http://jabref.sf.net.')
+                fnf.strerror = 'Please install JabRef from http://jabref.sf.net.'
             raise fnf
 
     @property
@@ -206,7 +203,7 @@ class Database:
 
     def export(self, templateString=None, docDir=None):
         """Exports the BibTeX database to a string by using the jinja template engine."""
-        import hashlib
+        import datetime, hashlib
         import jinja2
         if docDir is None:
             docDir = self.documentsPath
@@ -214,14 +211,12 @@ class Database:
             return hashlib.md5(value.encode()).hexdigest()
         env = jinja2.Environment(autoescape=False)
         env.filters['md5'] = md5filter
-        import datetime
-        now = datetime.datetime.now().strftime('%c')
         if templateString is None:
             from pkg_resources import resource_string
             templateString = resource_string(__name__, 'defaultTemplate.html').decode('UTF-8')
         template = env.from_string(templateString)
         revision = self.vcs.revision()
-        print(revision)
+        now = datetime.datetime.now().strftime('%c')
         return template.render(database=self, docDir=docDir, revision=revision, now=now)
 
 

@@ -49,20 +49,24 @@ class BtVCSGui(QtWidgets.QWidget):
         dbLayout.addWidget(dbSelect)
         dbLayout.addWidget(dbClone)
         layout.addLayout(dbLayout)
+        self.setLayout(layout)
+        self.guiComplete = False
 
+        # helpers for asynchronous function calls
         self.executor = concurrent.futures.ThreadPoolExecutor(1)
         self.futureTimer = QtCore.QTimer(self)
         self.futureTimer.setInterval(10)
-        self.futureTimer.timeout.connect(self.updateFuture)
-        self.guiComplete = False
-        self.setLayout(layout)
-        self.db = None
-        self.show()
+        self.futureTimer.timeout.connect(self._updateFuture)
         self.prog = QtWidgets.QProgressDialog(self)
         self.prog.setRange(0, 0)
         self.prog.setCancelButtonText(None)
         self.prog.setWindowModality(Qt.WindowModal)
-        self.runAsync(self.tr("Opening last database ..."), self.loadDefault, config.getDefaultDatabase)
+
+        self.db = None
+        self.show()
+
+        self.runAsync(self.tr("Opening previous database ..."),
+                      self.loadDefault, config.getDefaultDatabase)
 
     def loadDefault(self):
         """Opens the default database as defined in :mod:`bibtexvcs`'s config file. If no default
@@ -121,7 +125,7 @@ class BtVCSGui(QtWidgets.QWidget):
         self.future = self.executor.submit(fn, *args, **kwargs)
         self.futureTimer.start()
 
-    def updateFuture(self):
+    def _updateFuture(self):
         if self.future.done():
             self.futureTimer.stop()
             self.prog.close()
@@ -130,10 +134,23 @@ class BtVCSGui(QtWidgets.QWidget):
 
     @contextmanager
     def catchExceptions(self, onAuthEntered=None):
+        """Contextmanager catching common exceptions and displaying message boxes if they occur.
+
+        The caught exceptions are :class:`DatabaseFormatError`, :class:`MergeConflict` and
+        :class:`AuthError`.
+
+        `onAuthEntered` is an optional callable. If it is provided and an :class:`AuthError` is
+        caught, the following happens:
+        - A :class:`LoginDialog` is shown to ask the user for a login,
+        - if the dialog is canceled, the :class:`AuthError` is re-raised
+        - otherwise, the function `onAuthEntered` is called.
+
+        If the `store login` checkbox in the :class:`LoginDialog` was checked, the information is
+        set to `self.db.vcs` and :fun:`config.setAuthInformation` is called.
+        """
         M = QtWidgets.QMessageBox
         try:
             yield
-            return True
         except DatabaseFormatError as e:
             M.critical(self, self.tr('Error Opening Database'), str(e))
         except MergeConflict as mc:

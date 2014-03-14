@@ -49,7 +49,8 @@ setup(
     keywords='bibliography bibtex jabref',
     packages=find_packages(),
     install_requires=["pyparsing"],
-    entry_points={ 'gui_scripts': ['btvcs = bibtexvcs.gui:run']},
+    entry_points={ 'gui_scripts'     : ['btvcs = bibtexvcs.gui:run'],
+                   'console_scripts' : ['cbtvcs = bibtexvcs.script:script'] },
     package_data={'bibtexvcs' : ['defaultTemplate.html']},
     test_suite='test'
 )
