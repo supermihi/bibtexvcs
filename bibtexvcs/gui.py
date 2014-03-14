@@ -229,9 +229,10 @@ class BtVCSGui(QtWidgets.QWidget):
 
     def makeHTML(self):
         html = self.db.export()
-        with tempfile.NamedTemporaryFile('wt', suffix='.html', delete=False, encoding='UTF-8') as f:
+        handle, name = tempfile.mkstemp(suffix='.html', text=True)
+        with open(handle, 'wt', encoding='UTF-8') as f:
             f.write(html)
-        webbrowser.open(f.name)
+        webbrowser.open(name)
 
     def runChecks(self):
         self.runAsync(self.tr("Performing database checks ..."),
