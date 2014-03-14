@@ -105,6 +105,8 @@ class Database:
 
         self.name = config.get('name', "Untitled Bibtex Database")
         self.documents = config.get('documents', 'Documents')
+
+        self.publicLink = config.get('publicLink', None)
         if not exists(self.documentsPath):
             os.mkdir(self.documentsPath)
 

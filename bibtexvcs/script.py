@@ -12,12 +12,12 @@ from bibtexvcs import config
 
 def export(args):
     if args.template:
-        with open(args.template, 'r') as templateFile:
+        with open(args.template, 'r', encoding='UTF-8') as templateFile:
             templateString = templateFile.read()
     else:
         templateString = None
     output = args.db.export(templateString=templateString, docDir=args.docs)
-    with open(args.output, 'wt') as outfile:
+    with open(args.output, 'wt', encoding='UTF-8') as outfile:
         outfile.write(output)
 
 def script():

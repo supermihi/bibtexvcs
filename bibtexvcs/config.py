@@ -90,5 +90,8 @@ def getAuthInformation(db):
 def save():
     """Store the current configuration to disk."""
     if _config is not None:
+        confdir = os.path.dirname(getConfigPath())
+        if not os.path.exists(confdir):
+            os.makedirs(confdir)
         with open(getConfigPath(), 'wt') as configfile:
             _config.write(configfile)
