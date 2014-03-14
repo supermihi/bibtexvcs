@@ -199,7 +199,7 @@ class MercurialInterface(VCSInterface):
         return True
 
     def revision(self):
-        return self.callHg('log', '-l', '1', '--template', '{rev}\n{date(localdate)}'
+        return self.callHg('log', '-l', '1', '--template', '{rev}\n{date|isodate}'
                            ).decode().splitlines()
 
     @classmethod
