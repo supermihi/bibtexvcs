@@ -81,6 +81,10 @@ class VCSInterface(metaclass=VCSMeta):
         :type msg:  str"""
         raise NotImplementedError()
 
+    def revision(self):
+        """Returns a tuple containing the current revision and its date."""
+        raise NotImplementedError()
+
     @staticmethod
     def get(db):
         try:
@@ -193,6 +197,10 @@ class MercurialInterface(VCSInterface):
         if self.hasRemote:
             self.callHg('push')
         return True
+
+    def revision(self):
+        return self.callHg('log', '-l', '1', '--template', '{rev}\n{date(localdate)}'
+                           ).decode().splitlines()
 
     @classmethod
     def clone(cls, url, target, username=None, password=None):

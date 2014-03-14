@@ -204,19 +204,25 @@ class Database:
             self._vcs = VCSInterface.get(self)
         return self._vcs
 
-    def export(self, templateString=None):
+    def export(self, templateString=None, docDir=None):
         """Exports the BibTeX database to a string by using the jinja template engine."""
         import hashlib
         import jinja2
+        if docDir is None:
+            docDir = self.documentsPath
         def md5filter(value):
             return hashlib.md5(value.encode()).hexdigest()
         env = jinja2.Environment(autoescape=False)
         env.filters['md5'] = md5filter
+        import datetime
+        now = datetime.datetime.now().strftime('%c')
         if templateString is None:
             from pkg_resources import resource_string
             templateString = resource_string(__name__, 'defaultTemplate.html').decode('UTF-8')
         template = env.from_string(templateString)
-        return template.render(database=self, entries=self.bibfile.values())
+        revision = self.vcs.revision()
+        print(revision)
+        return template.render(database=self, docDir=docDir, revision=revision, now=now)
 
 
 

@@ -259,7 +259,7 @@ class BtVCSGui(QtWidgets.QWidget):
     def makeHTML(self):
         html = self.db.export()
         import tempfile
-        with tempfile.NamedTemporaryFile('wt', delete=False) as f:
+        with tempfile.NamedTemporaryFile('wt', suffix='.html', delete=False) as f:
             f.write(html)
         import subprocess
         subprocess.Popen(['firefox', f.name])
