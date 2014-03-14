@@ -6,7 +6,7 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
-import functools, concurrent.futures
+import concurrent.futures, tempfile, webbrowser
 import os.path
 from contextlib import contextmanager
 
@@ -90,7 +90,7 @@ class BtVCSGui(QtWidgets.QWidget):
             exportButton.setToolTip(self.tr('Create and open a HTML page for the database'))
             exportButton.clicked.connect(self.makeHTML)
             self.linkButton = QtWidgets.QPushButton(self.tr("Public HTML"))
-            self.linkButton.clicked.connect(self.publicHTML)
+            self.linkButton.clicked.connect(lambda: webbrowser.open(self.db.publicLink))
             commitButton = QtWidgets.QPushButton(standardIcon(self, "SP_ArrowUp"),
                                                  self.tr("Commit"))
             commitButton.clicked.connect(self.runChecks)
@@ -229,15 +229,9 @@ class BtVCSGui(QtWidgets.QWidget):
 
     def makeHTML(self):
         html = self.db.export()
-        import tempfile
         with tempfile.NamedTemporaryFile('wt', suffix='.html', delete=False, encoding='UTF-8') as f:
             f.write(html)
-        import subprocess
-        subprocess.Popen(['firefox', f.name])
-
-    def publicHTML(self):
-        import webbrowser
-        webbrowser.open(self.db.publicLink)
+        webbrowser.open(f.name)
 
     def runChecks(self):
         self.runAsync(self.tr("Performing database checks ..."),
