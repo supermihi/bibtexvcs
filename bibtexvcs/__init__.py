@@ -1,3 +1,3 @@
 """BibTeX VCS main package."""
 
-__version__ = '2014.4'
+__version__ = '2014.5'

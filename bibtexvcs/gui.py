@@ -100,14 +100,7 @@ class BtVCSGui(QtWidgets.QWidget):
             self.layout().addWidget(self.journalsTable)
             self.layout().addLayout(buttonLayout)
             self.guiComplete = True
-        else:
-            self.journalsTable.setDB(db)
-        self.linkButton.setVisible(db.publicLink is not None)
-        if db.publicLink:
-            self.linkButton.setToolTip(db.publicLink)
-        db.vcs.authCallback = functools.partial(LoginDialog.getLogin, self)
-        self.dbLabel.setText(self.tr("Database: <i>{}</i>").format(db.directory))
-        self.setWindowTitle(self.tr("BibTeX VCS – {}").format(db.name))
+        self.reload()
         self.updateRepository()
 
     def runAsync(self, labelText, finishedCall, fn, *args, **kwargs):
@@ -168,6 +161,11 @@ class BtVCSGui(QtWidgets.QWidget):
 
     def reload(self):
         self.journalsTable.setDB(self.db)
+        self.linkButton.setVisible(self.db.publicLink is not None)
+        if self.db.publicLink:
+            self.linkButton.setToolTip(self.db.publicLink)
+        self.dbLabel.setText(self.tr("Database: <i>{}</i>").format(self.db.directory))
+        self.setWindowTitle(self.tr("BibTeX VCS – {}").format(self.db.name))
 
     def openDialog(self):
         ans = QtWidgets.QFileDialog.getOpenFileName(self, self.tr("Select Database"), "",
@@ -232,7 +230,7 @@ class BtVCSGui(QtWidgets.QWidget):
     def makeHTML(self):
         html = self.db.export()
         import tempfile
-        with tempfile.NamedTemporaryFile('wt', suffix='.html', delete=False) as f:
+        with tempfile.NamedTemporaryFile('wt', suffix='.html', delete=False, encoding='UTF-8') as f:
             f.write(html)
         import subprocess
         subprocess.Popen(['firefox', f.name])
