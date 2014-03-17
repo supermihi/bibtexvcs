@@ -15,7 +15,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 
 def find_version(*file_paths):
     # From PyPA's sampleproject (https://github.com/pypa/sampleproject).
-    with open(os.path.join(here, *file_paths), 'r') as f:
+    with open(os.path.join(here, *file_paths), 'r', encoding='UTF-8') as f:
         version_file = f.read()
 
     version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",

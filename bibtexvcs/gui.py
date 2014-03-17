@@ -10,8 +10,19 @@ import concurrent.futures, tempfile, webbrowser
 import os.path
 from contextlib import contextmanager
 
-from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtCore import Qt
+# we support PyQt5, PyQt4 and PySide
+try:
+    from PyQt5 import QtWidgets, QtCore
+    from PyQt5.QtCore import Qt
+except ImportError:
+    try:
+        from PyQt4 import QtGui, QtCore
+        from PyQt4.QtCore import Qt
+        QtWidgets = QtGui
+    except ImportError:
+        from PySide import QtGui, QtCore
+        from PySide.QtCore import Qt
+        QtWidgets = QtGui
 
 from bibtexvcs.vcs import MergeConflict, typeMap, AuthError, VCSInterface
 from bibtexvcs.database import Database, Journal, JournalsFile, DatabaseFormatError, BTVCSCONF
@@ -158,6 +169,8 @@ class BtVCSGui(QtWidgets.QWidget):
                     onAuthEntered()
                     return
             M.critical(self, self.tr("Authorization Required"), str(a))
+        except Exception as e:
+            M.critical(self, self.tr('Unhandled exception'), str(e))
 
     def reload(self):
         self.journalsTable.setDB(self.db)
@@ -165,7 +178,7 @@ class BtVCSGui(QtWidgets.QWidget):
         if self.db.publicLink:
             self.linkButton.setToolTip(self.db.publicLink)
         self.dbLabel.setText(self.tr("Database: <i>{}</i>").format(self.db.directory))
-        self.setWindowTitle(self.tr("BibTeX VCS – {}").format(self.db.name))
+        self.setWindowTitle(self.tr("BibTeX VCS: {}").format(self.db.name))
 
     def openDialog(self):
         ans = QtWidgets.QFileDialog.getOpenFileName(self, self.tr("Select Database"), "",
@@ -302,10 +315,16 @@ class JournalsWidget(QtWidgets.QWidget):
         self.table = QtWidgets.QTableWidget(len(db.journals), 3)
         self.table.setHorizontalHeaderLabels([self.tr("Full"), self.tr("Abbreviated"), self.tr("Macro")])
         self.setDB(db)
-        self.table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
-        self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        try:  # Qt5
+            self.table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
+            self.table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.Stretch)
+            self.table.horizontalHeader().setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
+            self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        except AttributeError:  # Qt4
+            self.table.horizontalHeader().setResizeMode(0, QtWidgets.QHeaderView.Stretch)
+            self.table.horizontalHeader().setResizeMode(1, QtWidgets.QHeaderView.Stretch)
+            self.table.horizontalHeader().setResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
+            self.table.verticalHeader().setResizeMode(QtWidgets.QHeaderView.ResizeToContents)
 
         layout = QtWidgets.QVBoxLayout()
         journalsLabel = QtWidgets.QLabel(self.tr("<h3>Journals Management</h3>"))
