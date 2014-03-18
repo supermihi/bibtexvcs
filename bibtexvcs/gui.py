@@ -6,7 +6,8 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
-import concurrent.futures, tempfile, webbrowser
+from __future__ import division, print_function, unicode_literals
+import concurrent.futures, tempfile, webbrowser, sys
 import os.path
 from contextlib import contextmanager
 
@@ -14,32 +15,38 @@ from contextlib import contextmanager
 try:
     from PyQt5 import QtWidgets, QtCore
     from PyQt5.QtCore import Qt
+    print('using PyQt5')
+    QT5 = True
 except ImportError:
+    QT5 = False
     try:
         from PyQt4 import QtGui, QtCore
         from PyQt4.QtCore import Qt
         QtWidgets = QtGui
+        print('using PyQt4')
     except ImportError:
         from PySide import QtGui, QtCore
         from PySide.QtCore import Qt
         QtWidgets = QtGui
+        print('using PySide4')
 
 from bibtexvcs.vcs import MergeConflict, typeMap, AuthError, VCSInterface
 from bibtexvcs.database import Database, Journal, JournalsFile, DatabaseFormatError, BTVCSCONF
 from bibtexvcs import config
 
+if sys.version_info.major == 2:
+    str = unicode
 
 def standardIcon(widget, standardPixmap):
     """Helper function to generate a QIcon from a standardPixmap."""
     return widget.style().standardIcon(getattr(widget.style(), standardPixmap))
-
 
 class BtVCSGui(QtWidgets.QWidget):
     """Main window of the BibTeX VCS GUI application.
     """
 
     def __init__(self):
-        super().__init__()
+        super(BtVCSGui, self).__init__()
         self.setWindowTitle("BibTeX VCS")
 
         layout = QtWidgets.QVBoxLayout()
@@ -70,7 +77,10 @@ class BtVCSGui(QtWidgets.QWidget):
         self.futureTimer.timeout.connect(self._updateFuture)
         self.prog = QtWidgets.QProgressDialog(self)
         self.prog.setRange(0, 0)
-        self.prog.setCancelButtonText(None)
+        if QT5:
+            self.prog.setCancelButtonText(None)
+        else:
+            self.prog.setCancelButtonText(QtCore.QString())
         self.prog.setWindowModality(Qt.WindowModal)
 
         self.db = None
@@ -97,15 +107,15 @@ class BtVCSGui(QtWidgets.QWidget):
             updateButton.clicked.connect(self.updateRepository)
             jabrefButton = QtWidgets.QPushButton(self.tr("JabRef"))
             jabrefButton.clicked.connect(self.jabref)
-            exportButton = QtWidgets.QPushButton(self.tr("Create HTML"))
-            exportButton.setToolTip(self.tr('Create and open a HTML page for the database'))
-            exportButton.clicked.connect(self.makeHTML)
+            # exportButton = QtWidgets.QPushButton(self.tr("Create HTML"))
+            # exportButton.setToolTip(self.tr('Create and open a HTML page for the database'))
+            # exportButton.clicked.connect(self.makeHTML)
             self.linkButton = QtWidgets.QPushButton(self.tr("Public HTML"))
             self.linkButton.clicked.connect(lambda: webbrowser.open(self.db.publicLink))
             commitButton = QtWidgets.QPushButton(standardIcon(self, "SP_ArrowUp"),
                                                  self.tr("Commit"))
             commitButton.clicked.connect(self.runChecks)
-            for button in updateButton, jabrefButton, exportButton, self.linkButton, commitButton:
+            for button in updateButton, jabrefButton, self.linkButton, commitButton:
                 buttonLayout.addWidget(button)
             self.journalsTable = JournalsWidget(self.db)
             self.layout().addWidget(self.journalsTable)
@@ -177,14 +187,15 @@ class BtVCSGui(QtWidgets.QWidget):
         self.linkButton.setVisible(self.db.publicLink is not None)
         if self.db.publicLink:
             self.linkButton.setToolTip(self.db.publicLink)
-        self.dbLabel.setText(self.tr("Database: <i>{}</i>").format(self.db.directory))
-        self.setWindowTitle(self.tr("BibTeX VCS: {}").format(self.db.name))
+        self.dbLabel.setText(str(self.tr("Database: <i>{}</i>")).format(self.db.directory))
+        self.setWindowTitle(str(self.tr("BibTeX VCS: {}")).format(self.db.name))
 
     def openDialog(self):
         ans = QtWidgets.QFileDialog.getOpenFileName(self, self.tr("Select Database"), "",
-                                              self.tr("BibTeX VCS configuration files ({})".format(BTVCSCONF)))
-        if len(ans[0]) > 0:
-            directory = os.path.dirname(ans[0])
+                    str(self.tr("BibTeX VCS configuration files ({})")).format(BTVCSCONF))
+        filename = ans[0] if QT5 else ans
+        if len(filename) > 0:
+            directory = os.path.dirname(str(filename))
             with self.catchExceptions():
                 db = Database(directory)
                 self.setDB(db)
@@ -241,11 +252,12 @@ class BtVCSGui(QtWidgets.QWidget):
             QtWidgets.QMessageBox.critical(self, self.tr('Could not start JabRef'), str(e))
 
     def makeHTML(self):
-        html = self.db.export()
-        handle, name = tempfile.mkstemp(suffix='.html', text=True)
-        with open(handle, 'wt', encoding='UTF-8') as f:
-            f.write(html)
-        webbrowser.open(name)
+        with self.catchExceptions():
+            html = self.db.export()
+            handle, name = tempfile.mkstemp(suffix='.html', text=True)
+            with open(handle, 'wt', encoding='UTF-8') as f:
+                f.write(html)
+            webbrowser.open(name)
 
     def runChecks(self):
         self.runAsync(self.tr("Performing database checks ..."),
@@ -296,7 +308,8 @@ class BtVCSGui(QtWidgets.QWidget):
             ans = QtWidgets.QMessageBox.question(self,
                 self.tr("Local changes present"),
                 self.tr("Database was modified locally. Are you sure you want to quit "
-                        "without committing the changes?"))
+                        "without committing the changes?"),
+                QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Yes)
             if ans == QtWidgets.QMessageBox.Yes:
                 config.setDefaultDatabase(self.db)
                 event.accept()
@@ -311,7 +324,7 @@ class BtVCSGui(QtWidgets.QWidget):
 class JournalsWidget(QtWidgets.QWidget):
 
     def __init__(self, db):
-        super().__init__()
+        super(JournalsWidget, self).__init__()
         self.table = QtWidgets.QTableWidget(len(db.journals), 3)
         self.table.setHorizontalHeaderLabels([self.tr("Full"), self.tr("Abbreviated"), self.tr("Macro")])
         self.setDB(db)

@@ -6,7 +6,8 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
-import os, subprocess, sys
+from __future__ import division, print_function, unicode_literals
+import io, os, subprocess, sys
 from bibtexvcs import config
 
 class MergeConflict(Exception):
@@ -21,12 +22,13 @@ typeMap = {}
 
 class VCSMeta(type):
     def __init__(cls, name, base, namespace):
-        super().__init__(name, base, namespace)
+        super(VCSMeta, cls).__init__(name, base, namespace)
         if hasattr(cls, 'vcsType'):
             typeMap[cls.vcsType] = cls
 
+VCSBase = VCSMeta('VCSBase' if sys.version_info.major >= 3 else b'VCSBase', (object,), {})
 
-class VCSInterface(metaclass=VCSMeta):
+class VCSInterface(VCSBase):
     """Interface to the version control system (VCS) of a :mod:`bibtexvcs` database.
 
     .. attribute:: username
@@ -36,6 +38,7 @@ class VCSInterface(metaclass=VCSMeta):
 
         Optional password for authentication.
     """
+
     def __init__(self, db):
         self.db = db
         ans = config.getAuthInformation(db)
@@ -78,7 +81,10 @@ class VCSInterface(metaclass=VCSMeta):
         """Commit local changes and push to remote, if exists.
 
         :param msg: Commit message.
-        :type msg:  str"""
+        :type msg:  str
+
+        :returns: Indicate whether there were any actual changes.
+        :rtype  : bool"""
         raise NotImplementedError()
 
     def revision(self):
@@ -118,7 +124,7 @@ class MercurialInterface(VCSInterface):
     cmdline = ['hg', '--noninteractive', '--config', 'auth.x.prefix=*']
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super(MercurialInterface, self).__init__(*args, **kwargs)
         self.hasRemote = len(self.callHg("showconfig", "paths.default")) > 0
 
     def callHg(self, *args):
@@ -128,14 +134,20 @@ class MercurialInterface(VCSInterface):
                                           cwd=self.root)
 
     @classmethod
-    def _callHg(cls, *args, username=None, password=None, **kwargs):
+    def _callHg(cls, *args, **kwargs):
         cmdline = cls.cmdline[:]
-        if username:
-            cmdline += ['--config', 'auth.x.username={}'.format(username)]
-        if password:
-            cmdline += ['--config', 'auth.x.password={}'.format(password)]
+        kwargs = kwargs.copy()
+        if kwargs.get('username'):
+            cmdline += ['--config', 'auth.x.username={}'.format(kwargs['username'])]
+        if kwargs.get('password'):
+            cmdline += ['--config', 'auth.x.password={}'.format(kwargs['password'])]
+        if 'username' in kwargs:
+            del kwargs['username']
+        if 'password' in kwargs:
+            del kwargs['password']
         env = os.environ.copy()
         env['LANG'] = 'C'
+        env['LANGUAGE'] = 'C'  # on Ubuntu 12.04, LANG=C does not convince hg to use english output
         try:
             return subprocess.check_output(cmdline + list(args), env=env,
                                            stderr=subprocess.STDOUT, **kwargs)
@@ -179,11 +191,10 @@ class MercurialInterface(VCSInterface):
         if not self.localChanges():
             return False
         if os.name != 'nt':
-            with open(self.db.bibfilePath, 'rt', encoding='UTF-8') as bibfile:
+            with io.open(self.db.bibfilePath, 'rt', encoding='UTF-8') as bibfile:
                 bib = bibfile.read()
-            with open(self.db.bibfilePath, 'wt', encoding='UTF-8', newline='\r\n') as bibfile:
+            with io.open(self.db.bibfilePath, 'wt', encoding='UTF-8', newline='\r\n') as bibfile:
                 bibfile.write(bib)
-        self.update()  # merge potential remote changes before commiting
         hgOutput = self.callHg('status', '--deleted', '--no-status', self.db.documents)
         deletedDocs = hgOutput.decode(sys.getfilesystemencoding()).splitlines()
         if len(deletedDocs) > 0:
@@ -206,6 +217,7 @@ class MercurialInterface(VCSInterface):
     def clone(cls, url, target, username=None, password=None):
         cls._callHg('clone', url, target, username=username, password=password)
 
+
 class NoVCSInterface(VCSInterface):
     """Dummy VCS interface for the case of a database that is not under version control."""
 
@@ -215,3 +227,6 @@ class NoVCSInterface(VCSInterface):
         if name in ("add", "localChanges", "update", "commit"):
             return lambda *args, **kwargs: False
         return super().__getattribute__(name)
+
+    def revision(self):
+        return None, None

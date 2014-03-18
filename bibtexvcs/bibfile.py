@@ -6,8 +6,9 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
-
-from collections import OrderedDict, namedtuple
+from __future__ import division, print_function, unicode_literals
+from collections import OrderedDict
+import io
 
 """This module contains classes for an object-oriented representation of the .bib file.
 
@@ -32,11 +33,11 @@ class BibFile(OrderedDict):
     """
 
     def __init__(self, filename=None, bibstring=None):
-        super().__init__()
+        super(BibFile, self).__init__()
         self.filename = filename
         from . import parser
         if filename:
-            with open(filename, "rt", encoding='UTF-8') as bibFile:
+            with io.open(filename, "rt", encoding='UTF-8') as bibFile:
                 bibstring = bibFile.read()
         bibParsed = parser.bibfile.parseString(bibstring, parseAll=True)
         self.comments = []
@@ -99,7 +100,7 @@ class MacroDefinition(DatabaseElement):
     def fromParseResult(cls, toks):
         macro = toks["macro"]
         definition = toks["definition"]
-        return cls(macro, definition)
+        return [cls(macro, definition)]
 
 
 class MacroReference(DatabaseElement):
@@ -120,7 +121,7 @@ class MacroReference(DatabaseElement):
 
     @classmethod
     def fromParseResult(cls, toks):
-        return cls(toks[0])
+        return [cls(toks[0])]
 
 
 class Entry(DatabaseElement, OrderedDict):
@@ -154,7 +155,7 @@ class Entry(DatabaseElement, OrderedDict):
                 citekey = val
             else:
                 fields[key] = formatValue(val)
-        return Entry(entrytype=entrytype, citekey=citekey, fields=fields, src=bibsrc)
+        return [Entry(entrytype=entrytype, citekey=citekey, fields=fields, src=bibsrc)]
 
     def filename(self):
         """Returns the filename referenced in the BibTeX ``file`` field in `JabRef`_'s format.
@@ -203,7 +204,7 @@ class Comment(DatabaseElement):
 
     @classmethod
     def fromParseResult(cls, toks):
-        return cls(toks["comment"])
+        return [cls(toks["comment"])]
 
     def __str__(self):
         return "{}({})".format(self.__class__.__name__, self.comment)
@@ -217,7 +218,7 @@ class Preamble(DatabaseElement):
 
     @classmethod
     def fromParseResult(cls, toks):
-        return cls(toks["preamble"])
+        return [cls(toks["preamble"])]
 
 class Name:
     def __init__(self, last, nobility=None, first=None, suffix=None):

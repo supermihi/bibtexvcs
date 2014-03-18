@@ -9,8 +9,8 @@
 """The :mod:`database <bibtexvcs.database>` module contains classes for managing a BibTeX VCS
 database, which consists of a config file, a bib file, a documents directory, and a journals file.
 """
-
-import configparser, os, subprocess
+from __future__ import division, print_function, unicode_literals
+import configparser, io, os, subprocess
 from collections import OrderedDict
 from os.path import join, exists, relpath
 
@@ -82,7 +82,7 @@ class Database:
 
     def reload(self):
         parser = configparser.ConfigParser()
-        with open(self.configPath, encoding='UTF-8') as f:
+        with io.open(self.configPath, encoding='UTF-8') as f:
             confFile = f.read()
         # workaround because ConfigParser does not support sectionless entries
         try:
@@ -206,7 +206,10 @@ class Database:
     def export(self, templateString=None, docDir=None):
         """Exports the BibTeX database to a string by using the jinja template engine."""
         import datetime, hashlib
-        import jinja2
+        try:
+            import jinja2
+        except ImportError:
+            raise ImportError('You need to install the jinja2 package in order to export.')
         if docDir is None:
             docDir = self.documentsPath
         def md5filter(value):
@@ -265,7 +268,7 @@ class JournalsFile(OrderedDict):
     """
 
     def __init__(self, filename=None, journals=None):
-        super().__init__(self)
+        super(JournalsFile, self).__init__()
 
         if filename:
             journals = []

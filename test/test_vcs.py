@@ -6,6 +6,7 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
+from __future__ import division, print_function, unicode_literals
 import unittest
 from os.path import join
 import os
@@ -14,7 +15,7 @@ from bibtexvcs import vcs
 from . import tmpDatabase, tmpClonedDatabase
 
 class TestMercurial(unittest.TestCase):
-    
+
     def testBasicVCS(self):
         with tmpDatabase() as db:
             self.assertTrue(db.vcs.localChanges())
@@ -26,7 +27,7 @@ class TestMercurial(unittest.TestCase):
             self.assertTrue(db.vcs.localChanges())
             db.vcs.commit()
             self.assertFalse(db.vcs.localChanges())
-            
+
     def testRemoteVCS(self):
         with tmpDatabase() as _db:
             with tmpClonedDatabase(_db.directory) as db:
@@ -49,5 +50,4 @@ class TestMercurial(unittest.TestCase):
                 self.assertTrue(_db.vcs.localChanges())
                 _db.vcs.commit()
                 self.assertRaises(vcs.MergeConflict, db.vcs.update)
-            
-            
+

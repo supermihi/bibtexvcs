@@ -11,6 +11,7 @@ The :mod:`config <bibtexvcs.config>` module contains helpers for persisten confi
 Currently, this allows to store VCS auth information and a default database to open at startup.
 """
 
+from __future__ import division, print_function, unicode_literals
 import os.path
 import configparser
 import atexit
