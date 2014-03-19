@@ -20,7 +20,6 @@ try:
 except ImportError:
     QT5 = False
     try:
-        raise ImportError()
         from PyQt4 import QtGui, QtCore
         from PyQt4.QtCore import Qt
         QtWidgets = QtGui
