@@ -10,7 +10,7 @@
 from __future__ import division, print_function, unicode_literals
 import sys
 
-__version__ = '2014.12'
+__version__ = '2014.13'
 
 
 def pypiVersion():
@@ -24,9 +24,8 @@ def pypiVersion():
         from urllib.error import URLError
         urlopen = urllib.request.urlopen
     try:
-        with urlopen('https://pypi.python.org/pypi/bibtexvcs/json') as f:
-            data = f.read().decode()
-    except URLError as e:
+        data = urlopen('https://pypi.python.org/pypi/bibtexvcs/json').read().decode()
+    except URLError:
         return None
     import json
     decoded = json.loads(data)
