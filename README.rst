@@ -24,11 +24,12 @@ each PDF document is linked to by at least one BibTeX entry.
 
 Installation
 ------------
-`BibTeX VCS` needs a `Python 3 <Python>`_ interpreter. The easiest way to install it is using pip_::
+`BibTeX VCS` needs a `Python <Python>`_ interpreter. Python version 3.x is recommended, but the package will also
+run with Python 2.7. The easiest way to install it is using pip_::
 
    pip3 install bibtexvcs
 
-If you want to use the GUI_, you need to install either PyQt4_, PyQt5_, or PySide_ for Python 3. For exporting
+If you want to use the GUI_, you need to install either PyQt4_, PyQt5_, or PySide_. For exporting
 the database using a template, Jinja2_ is an additional requirement.
 
 Repository (Database) Layout
