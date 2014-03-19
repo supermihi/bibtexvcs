@@ -12,7 +12,9 @@ import os.path
 from contextlib import contextmanager
 
 # we support PyQt5, PyQt4 and PySide
+PYSIDE = False
 try:
+    raise ImportError()
     from PyQt5 import QtWidgets, QtCore
     from PyQt5.QtCore import Qt
     print('using PyQt5')
@@ -20,6 +22,7 @@ try:
 except ImportError:
     QT5 = False
     try:
+        raise ImportError()
         from PyQt4 import QtGui, QtCore
         from PyQt4.QtCore import Qt
         QtWidgets = QtGui
@@ -29,6 +32,7 @@ except ImportError:
         from PySide.QtCore import Qt
         QtWidgets = QtGui
         print('using PySide4')
+        PYSIDE = True
 
 from bibtexvcs.vcs import MergeConflict, typeMap, AuthError, VCSInterface
 from bibtexvcs.database import Database, Journal, JournalsFile, DatabaseFormatError, BTVCSCONF
@@ -67,6 +71,9 @@ class BtVCSGui(QtWidgets.QWidget):
         dbLayout.addWidget(dbSelect)
         dbLayout.addWidget(dbClone)
         layout.addLayout(dbLayout)
+        self.linkLabel = QtWidgets.QLabel('')
+        self.linkLabel.setOpenExternalLinks(True)
+        layout.addWidget(self.linkLabel)
         self.setLayout(layout)
         self.guiComplete = False
 
@@ -77,7 +84,7 @@ class BtVCSGui(QtWidgets.QWidget):
         self.futureTimer.timeout.connect(self._updateFuture)
         self.prog = QtWidgets.QProgressDialog(self)
         self.prog.setRange(0, 0)
-        if QT5:
+        if QT5 or PYSIDE:
             self.prog.setCancelButtonText(None)
         else:
             self.prog.setCancelButtonText(QtCore.QString())
@@ -103,19 +110,14 @@ class BtVCSGui(QtWidgets.QWidget):
         if not self.guiComplete:
             buttonLayout = QtWidgets.QHBoxLayout()
             updateButton = QtWidgets.QPushButton(standardIcon(self, "SP_ArrowDown"),
-                                                 self.tr("Update"))
+                                                 self.tr("1: Update"))
             updateButton.clicked.connect(self.updateRepository)
-            jabrefButton = QtWidgets.QPushButton(self.tr("JabRef"))
+            jabrefButton = QtWidgets.QPushButton(self.tr("2: JabRef"))
             jabrefButton.clicked.connect(self.jabref)
-            # exportButton = QtWidgets.QPushButton(self.tr("Create HTML"))
-            # exportButton.setToolTip(self.tr('Create and open a HTML page for the database'))
-            # exportButton.clicked.connect(self.makeHTML)
-            self.linkButton = QtWidgets.QPushButton(self.tr("Public HTML"))
-            self.linkButton.clicked.connect(lambda: webbrowser.open(self.db.publicLink))
             commitButton = QtWidgets.QPushButton(standardIcon(self, "SP_ArrowUp"),
-                                                 self.tr("Commit"))
+                                                 self.tr("3: Commit"))
             commitButton.clicked.connect(self.runChecks)
-            for button in updateButton, jabrefButton, self.linkButton, commitButton:
+            for button in updateButton, jabrefButton, commitButton:
                 buttonLayout.addWidget(button)
             self.journalsTable = JournalsWidget(self.db)
             self.layout().addWidget(self.journalsTable)
@@ -184,16 +186,16 @@ class BtVCSGui(QtWidgets.QWidget):
 
     def reload(self):
         self.journalsTable.setDB(self.db)
-        self.linkButton.setVisible(self.db.publicLink is not None)
         if self.db.publicLink:
-            self.linkButton.setToolTip(self.db.publicLink)
+            self.linkLabel.setText('Web: <a href="{0}">{0}</a>'.format(self.db.publicLink))
+        self.linkLabel.setVisible(self.db.publicLink is not None)
         self.dbLabel.setText(str(self.tr("Database: <i>{}</i>")).format(self.db.directory))
         self.setWindowTitle(str(self.tr("BibTeX VCS: {}")).format(self.db.name))
 
     def openDialog(self):
         ans = QtWidgets.QFileDialog.getOpenFileName(self, self.tr("Select Database"), "",
                     str(self.tr("BibTeX VCS configuration files ({})")).format(BTVCSCONF))
-        filename = ans[0] if QT5 else ans
+        filename = ans[0] if QT5 or PYSIDE else ans
         if len(filename) > 0:
             directory = os.path.dirname(str(filename))
             with self.catchExceptions():
@@ -441,6 +443,7 @@ class CloneDialog(QtWidgets.QDialog):
         self.btbx.rejected.connect(self.reject)
         self.btbx.accepted.connect(self.accept)
         self.targetEdit.textChanged.connect(self.checkOk)
+        self.urlEdit.textChanged.connect(self.checkOk)
         self.setLayout(layout)
 
     def checkOk(self):
@@ -489,9 +492,21 @@ class LoginDialog(QtWidgets.QDialog):
 
 
 def run():
-    import sys
+    import bibtexvcs, pkg_resources
+    from distutils.version import StrictVersion
+
+    newestVersion = StrictVersion(bibtexvcs.pypiVersion())
+    myVersion = StrictVersion(pkg_resources.get_distribution('bibtexvcs').version)
     app = QtWidgets.QApplication(sys.argv)
-    window = BtVCSGui()
+    if newestVersion > myVersion:
+        window = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Critical,
+                                       "New version available",
+                                       "A new version of BibTeX VCS ({}) is available. "
+                                       "Please update, then start again.",
+                                       QtWidgets.QMessageBox.Ok)
+        window.accepted.connect(app.exit)
+    else:
+        window = BtVCSGui()
     app.exec_()
 
 if __name__ == '__main__':
