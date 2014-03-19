@@ -12,8 +12,7 @@ Currently, this allows to store VCS auth information and a default database to o
 """
 
 from __future__ import division, print_function, unicode_literals
-import os.path
-import configparser
+import configparser, io, os.path
 import atexit
 
 def getConfigPath():
@@ -94,5 +93,5 @@ def save():
         confdir = os.path.dirname(getConfigPath())
         if not os.path.exists(confdir):
             os.makedirs(confdir)
-        with open(getConfigPath(), 'wt') as configfile:
+        with io.open(getConfigPath(), 'wt', encoding='UTF-8') as configfile:
             _config.write(configfile)

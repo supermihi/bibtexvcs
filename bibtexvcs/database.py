@@ -106,6 +106,8 @@ class Database:
         self.name = config.get('name', "Untitled Bibtex Database")
         self.documents = config.get('documents', 'Documents')
 
+        self.makeJournalBibfiles()
+
         self.publicLink = config.get('publicLink', None)
         if not exists(self.documentsPath):
             os.mkdir(self.documentsPath)
@@ -159,7 +161,9 @@ class Database:
         abbreviated form, respectively.
         """
         base = self.bibfilePath[:-4]
-        self.journals.writeBibfiles(base)
+        if not exists(base + '_abbr.bib') or not exists(base + '_full.bib') or \
+                os.path.getmtime(self.bibfilePath) > os.path.getmtime(base + '_abbr.bib'):
+            self.journals.writeBibfiles(base)
 
     def runJabref(self):
         """Tries to open this database's ``.bib`` file with `JabRef`_. Will do the following:
@@ -291,7 +295,7 @@ class JournalsFile(OrderedDict):
             config.add_section(journal.macro)
             config[journal.macro]['abbr'] = journal.abbr
             config[journal.macro]['full'] = journal.full
-        with open(filename, 'w', encoding='UTF-8', newline='\n') as journalfile:
+        with io.open(filename, 'w', encoding='UTF-8', newline='\n') as journalfile:
             config.write(journalfile)
 
     def writeBibfiles(self, basename):
@@ -303,7 +307,7 @@ class JournalsFile(OrderedDict):
         """
         for jrnlType in 'full', 'abbr':
             outFile = '{}_{}.bib'.format(basename, jrnlType)
-            with open(outFile, 'w', encoding='UTF-8') as bibfile:
+            with io.open(outFile, 'w', encoding='UTF-8') as bibfile:
                 for journal in self.values():
                     bibfile.write('@STRING{' + journal.macro + ' = {' + getattr(journal, jrnlType)
                                   + '}}\n')

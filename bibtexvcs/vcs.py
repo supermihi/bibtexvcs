@@ -207,6 +207,7 @@ class MercurialInterface(VCSInterface):
         self.callHg('commit', '--message', msg or 'Auto-Commit by BibTeX VCS')
         if self.hasRemote:
             self.callHg('push')
+        self.db.reload()
         return True
 
     def revision(self):
