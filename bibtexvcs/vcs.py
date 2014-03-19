@@ -82,9 +82,9 @@ class VCSInterface(VCSBase):
 
         :param msg: Commit message.
         :type msg:  str
-
-        :returns: Indicate whether there were any actual changes.
-        :rtype  : bool"""
+        :rtype: bool
+        :return: Indicate whether there were any actual changes.
+        """
         raise NotImplementedError()
 
     def revision(self):

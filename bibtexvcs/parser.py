@@ -72,7 +72,7 @@ string = (number | macroRef | quotedString | curlyString)
 # There can be hash concatenation
 fieldValue = string + ZeroOrMore(HASH + string)
 
-namePart = Regex(r'(?!\band\b)\w+\.?') | curlyString
+namePart = Regex(r'(?!\band\b)[^\s\.,{}]+\.?') | curlyString
 nobility = Regex(r'[a-z]\w+\.?(\s[a-z]\w+\.?)*').setResultsName("nobility")  # "van" etc.
 spacedNames = originalTextFor(OneOrMore(namePart))
 firstNames = spacedNames.copy().setResultsName("firstname")
@@ -107,9 +107,9 @@ name = (csName | literalName).setParseAction(makeName)
 NAME_SEP = Regex(r'and[^}]', flags=re.IGNORECASE).suppress()
 namesList = LCURLY + delimitedList(name, NAME_SEP) + RCURLY
 
-author = CaselessLiteral("author")
+namesField = CaselessLiteral("author") | CaselessLiteral('editor')
 # we treat the author field special because we parse names
-fieldDef = Group((author + EQUALS + namesList)) | Group((fieldName + EQUALS + fieldValue))
+fieldDef = Group((namesField + EQUALS + namesList)) | Group((fieldName + EQUALS + fieldValue))
 entryContents = Dict(ZeroOrMore(fieldDef + COMMA) + Optional(fieldDef))
 
 

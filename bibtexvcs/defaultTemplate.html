@@ -78,7 +78,14 @@ $(function() {
 		<tbody id="entriesbody">
 		{% for citekey, entry in database.bibfile.items() %}
 		  <tr id="{{entry.citekey|md5}}" class="entry">
-            <td class="author">{{entry.authorLastNames(2)}}</td>
+            <td class="author">
+              {% if entry['author'] %}
+                {{entry.lastNames('author')}}
+              {% elif entry['editor'] %}
+                {{entry.lastNames('editor') + " (editors)"}}
+              {% else %}
+                {{entry['organization']}}
+              {% endif %}</td>
             <td class="title">
               {% if entry["file"] %}<a href="{{docDir}}/{{entry.filename()}}">{% endif %}
               {{entry["title"]}}

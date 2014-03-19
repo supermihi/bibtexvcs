@@ -1,12 +1,13 @@
+**********************
 The BibTeX VCS Package
-======================
+**********************
 
 `BibTeX VCS` is a python package that helps sharing a BibTeX_ database with a  control system (VCS).
 It is optimized for usage together with the JabRef_ BibTeX manager.
 
 
 Introduction
-------------
+============
 Collecting and managing bibliography information can be cumbersone. Therefore it makes sense to maintain
 a single BibTeX database within a research group that focusses on the same topic and thus has a lot of
 common bibliography. Furthermore, tools like JabRef_ allow to link PDF documents to BibTeX entries, turning
@@ -20,20 +21,50 @@ trained, and even less interested in, the usage of VCS systems.
 platform-independent GUI. It allows to defined a number of `database checks` that are run prior to each
 commit operation, in order to enforce consistency and a defined referencing style within the database.
 For example, there is a check that ensures that the documents linked to BibTeX entries actually exist, and
-each PDF document is linked to by at least one BibTeX entry.
+each PDF document is linked to by at least one BibTeX entry. For information on the default checks and how to
+add custom ones, see :ref:`checksModule`.
 
 Installation
-------------
-`BibTeX VCS` needs a `Python <Python>`_ interpreter. Python version 3.x is recommended, but the package will also
+============
+`BibTeX VCS` needs a Python_ interpreter. Python version 3.x is recommended, but the package will also
 run with Python 2.7. The easiest way to install it is using pip_::
+
+   pip install bibtexvcs
+
+You may need to replace ``pip`` in the above command by ``pip-x.y``, where ``x.y`` denotes the desired Python version.
+If you want to use the GUI_, you need to install either PyQt4_, PyQt5_, or PySide_ for the same version of Python.
+For exporting the database using a template, Jinja2_ is an additional requirement.
+
+Below are some platform-specific instructions.
+
+Installation on Linux
+---------------------
+Install Python_ 3, pip_ and PyQt5_ (both for Python 3) using your distribution's package manager.
+If available, you can also install the Python 3 version of `pyparsing`. Then open a terminal and type::
+
+   pip3 install --user bibtexvcs
+   
+To start the GUI, either run the executable created by pip_ (default location: ``$HOME/.local/bin/btvcs``), or
+invoke::
+
+   python3 -m bibtexvcs.gui
+   
+Installation on Mac
+-------------------
+Install PySide_ according to the instructions on the home page. Then run the ``pip`` command as described above.
+
+Installation on Windows
+-----------------------
+Download and install Python_. If you choose Python 3.4 or later, be sure to check `pip` and `Add python.exe to Path`.
+Then, download and install either PyQt5_ or PySide_ for the same Python verson. Afterwards open a terminal and type::
 
    pip3 install bibtexvcs
 
-If you want to use the GUI_, you need to install either PyQt4_, PyQt5_, or PySide_. For exporting
-the database using a template, Jinja2_ is an additional requirement.
+This will install `BibTeX VCS` and all of its requirements. To start the GUI, either type ``btvcs`` into the terminal,
+or double-click on `btvcs.exe` in `C:\\PythonX.Y\\Scripts`.
 
 Repository (Database) Layout
-----------------------------
+============================
 A `BibTeX VCS` database consists of a repository of supported type (currently, this is only Mercurial_, but
 other VCS systems are easy to implement). The toplevel directory of the repository, henceforth called the
 `database directory`, must contain a file named ``bibtexvcs.conf`` which consists of "``key = value``"-type
@@ -58,7 +89,7 @@ configuration options. The possible configuration options are:
    URL of a web page containing an exported version of the database (see Exporting_). 
 
 GUI
----
+===
 
 `BibTeX VCS` includes a graphical user interface (GUI), based on Qt_, that allows to perform the most
 commont tasks without having to use the command line:
@@ -74,12 +105,12 @@ commont tasks without having to use the command line:
 The GUI is run by the ``btvcs`` command that is installed automatically with the package. Alternatively,
 you can directly run the gui module by invoking::
 
-   python3 -m bibtexvcs.gui
+   python -m bibtexvcs.gui
    
 The GUI needs either PyQt5_, PyQt4_ or PySide_ for Python 3 to be installed.
 
 Journal Abbreviations
----------------------
+=====================
 Depending on the publisher's demands, journal names in the references list should either be abbreviated
 (like in `J. Comput. Syst. Sci.`) or not (`Journal of Computer and Journal Sciences`). Since BibTeX does
 not support specifying both versions in the same entry, a common workaround is the use of `macros`. In the
@@ -104,7 +135,7 @@ and ``_abbr``, respectively.
 .. _Exporting:
 
 Exporting
----------
+=========
 A `BibTeX VCS` database can be exported to HTML and other formats using the Jinja2_ templating engine.
 A default template creates a searchable HTML table containing, for each entry, the most common fields, 
 places a link to the PDF document if that exists, and allows to view the raw BibTeX source for each entry.

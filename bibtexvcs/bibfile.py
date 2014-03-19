@@ -184,14 +184,14 @@ class Entry(DatabaseElement, OrderedDict):
         if "doi" in self:
             return "http://dx.doi.org/" + self["doi"]
 
-    def authorLastNames(self, maxNames=2):
-        if 'author' not in self:
-            return ""
-        authors = self['author']
-        if isinstance(authors, str) or isinstance(authors, Name):
-            return str(authors)
-        return ", ".join(author.last for author in authors) \
-            + (" et al."if len(authors) > maxNames else "")
+    def lastNames(self, field='author', maxNames=3):
+        if field not in self:
+            return None
+        names = self[field]
+        if isinstance(names, str) or isinstance(names, Name):
+            return str(names)
+        return ", ".join(name.lastName() for name in names[:maxNames]) \
+            + (" et al."if len(names) > maxNames else "")
 
     def __str__(self):
         return "{}({}) by {}".format(self.entrytype, self.citekey, self.get("author"))
@@ -209,8 +209,10 @@ class Comment(DatabaseElement):
     def __str__(self):
         return "{}({})".format(self.__class__.__name__, self.comment)
 
+
 class ImplicitComment(Comment):
     pass
+
 
 class Preamble(DatabaseElement):
     def __init__(self, contents):
@@ -220,14 +222,20 @@ class Preamble(DatabaseElement):
     def fromParseResult(cls, toks):
         return [cls(toks["preamble"])]
 
+
 class Name:
     def __init__(self, last, nobility=None, first=None, suffix=None):
         self.first = first
         self.nobility = nobility
         self.last = last
         self.suffix = suffix
+
     def __str__(self):
         return self.last
+
+    def lastName(self):
+        """Return a formatted version of the last name, including nobility and suffix (if appropriate)."""
+        return ' '.join((part for part in (self.nobility, self.last, self.suffix) if part is not None))
 
 
 MONTHS = dict((month[:3].lower(), MacroDefinition(month[:3].lower(), month)) for month in
