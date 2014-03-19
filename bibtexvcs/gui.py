@@ -14,10 +14,8 @@ from contextlib import contextmanager
 # we support PyQt5, PyQt4 and PySide
 PYSIDE = False
 try:
-    raise ImportError()
     from PyQt5 import QtWidgets, QtCore
     from PyQt5.QtCore import Qt
-    print('using PyQt5')
     QT5 = True
 except ImportError:
     QT5 = False
@@ -26,12 +24,10 @@ except ImportError:
         from PyQt4 import QtGui, QtCore
         from PyQt4.QtCore import Qt
         QtWidgets = QtGui
-        print('using PyQt4')
     except ImportError:
         from PySide import QtGui, QtCore
         from PySide.QtCore import Qt
         QtWidgets = QtGui
-        print('using PySide4')
         PYSIDE = True
 
 from bibtexvcs.vcs import MergeConflict, typeMap, AuthError, VCSInterface
@@ -494,18 +490,21 @@ class LoginDialog(QtWidgets.QDialog):
 def run():
     import bibtexvcs, pkg_resources
     from distutils.version import StrictVersion
-
-    newestVersion = StrictVersion(bibtexvcs.pypiVersion())
-    myVersion = StrictVersion(pkg_resources.get_distribution('bibtexvcs').version)
     app = QtWidgets.QApplication(sys.argv)
-    if newestVersion > myVersion:
-        window = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Critical,
-                                       "New version available",
-                                       "A new version of BibTeX VCS ({}) is available. "
-                                       "Please update, then start again.",
-                                       QtWidgets.QMessageBox.Ok)
-        window.accepted.connect(app.exit)
-    else:
+    window = None
+    newVersion = bibtexvcs.pypiVersion()
+    if newVersion:
+        newVersion = StrictVersion(newVersion)
+        myVersion = StrictVersion(pkg_resources.get_distribution('bibtexvcs').version)
+        if newVersion > myVersion:
+            window = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Critical,
+                                           "New version available",
+                                           "A new version of BibTeX VCS ({}) is available. "
+                                           "Please update, then start again.".format(newVersion),
+                                           QtWidgets.QMessageBox.Ok)
+            window.show()
+            window.accepted.connect(app.exit)
+    if window is None:
         window = BtVCSGui()
     app.exec_()
 

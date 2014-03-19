@@ -10,19 +10,24 @@
 from __future__ import division, print_function, unicode_literals
 import sys
 
-__version__ = '2014.10'
+__version__ = '2014.11'
 
 
 def pypiVersion():
     """Return the current version of this package on PyPI."""
     if sys.version_info.major == 2:
         import urllib2
+        from urllib2 import URLError
         urlopen = urllib2.urlopen
     else:
         import urllib.request
+        from urllib.error import URLError
         urlopen = urllib.request.urlopen
-    with urlopen('https://pypi.python.org/pypi/bibtexvcs/json') as f:
-        data = f.read().decode()
+    try:
+        with urlopen('https://pypi.python.org/pypi/bibtexvcs/json') as f:
+            data = f.read().decode()
+    except URLError as e:
+        return None
     import json
     decoded = json.loads(data)
     return decoded['info']['version']
