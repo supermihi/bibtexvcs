@@ -15,9 +15,6 @@ import io
 Most of it is generic for BibTeX, i.e. not special to the literature package.
 """
 
-
-
-
 class BibFile(OrderedDict):
     """Object-oriented encapsulation of a BibTeX database.
 
@@ -125,7 +122,7 @@ class MacroReference(DatabaseElement):
 
 
 class Entry(DatabaseElement, OrderedDict):
-    """Creates a new BibTeX entry.
+    """A BibTeX entry.
     """
 
     def __init__(self, entrytype, citekey, fields, src):

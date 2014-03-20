@@ -14,11 +14,20 @@ def performDatabaseCheck(database):
     me = sys.modules[__name__]
     checks = [fun for fname, fun in inspect.getmembers(me, inspect.isfunction) if fname.startswith('check')]
     errors = []
+    warnings = []
     for check in checks:
-        errors.extend(list(check(database)))
-    return errors
+        for ans in check(database):
+            if isinstance(ans, CheckFailed):
+                errors.append(ans)
+            else:
+                assert isinstance(ans, CheckWarning)
+                warnings.append(ans)
+    return errors, warnings
 
 class CheckFailed(Exception):
+    pass
+
+class CheckWarning(Warning):
     pass
 
 def checkMacros(database):
@@ -108,3 +117,36 @@ def checkJabrefFileDirectory(database):
             if comment.comment[len(identifier):] != database.documents + ';':
                 yield CheckFailed('JabRef fileDirectory field does not coincide with '
                                   'the configured one.')
+
+def checkRequiredFields(database):
+    """Checks that all required fields exist for each entry."""
+    requiredFields = {
+        'article'      : ('author', 'title', 'journal', 'year'),
+        'book'         : (('author', 'editor'), 'title', 'publisher', 'year'),
+        'incollection' : ('author', 'title', 'booktitle', 'publisher', 'year'),
+        'inproceedings': ('author', 'title', 'booktitle', 'year'),
+        'mastersthesis': ('author', 'title', 'school', 'year'),
+        'phdthesis'    : ('author', 'title', 'school', 'year'),
+        'misc'         : (),
+        'techreport'   : ('author', 'title', 'institution', 'year'),
+        'unpublished'  : ('author', 'title', 'note'),
+        'online'       : (('author', 'editor'), 'title', 'year', 'url')
+    }
+    for entry in database.bibfile.values():
+        if entry.entrytype not in requiredFields:
+            yield CheckWarning('Entry "{}": Required fields for type "{}" unknown'
+                               .format(entry.citekey, entry.entrytype))
+        else:
+            for req in requiredFields[entry.entrytype]:
+                if isinstance(req, tuple):
+                    if not any(subReq in entry for subReq in req):
+                        yield CheckFailed('Entry "{}" of type "{}" requires one of the fields: {}'
+                                          .format(entry.citekey, entry.entrytype, ', '.join(req)))
+                elif req not in entry:
+                    yield CheckFailed('Entry "{}" of type "{}" requires field "{}"'
+                                      .format(entry.citekey, entry.entrytype, req))
+
+def checkOwnerExists(database):
+    for entry in database.bibfile.values():
+        if 'owner' not in entry:
+            yield CheckFailed('Entry "{}" has no owner.'.format(entry.citekey))

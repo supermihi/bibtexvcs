@@ -14,6 +14,8 @@ import configparser, io, os, subprocess
 from collections import OrderedDict
 from os.path import join, exists, relpath
 
+from pkg_resources import  resource_string, resource_filename
+
 from bibtexvcs.bibfile import BibFile, MacroReference
 from bibtexvcs.vcs import VCSInterface
 
@@ -187,7 +189,10 @@ class Database:
             cmdline = ['jabref']
         if exists(join(self.directory, 'jabref.prefs')):
             cmdline += ['--primp', join('jabref.prefs')]
+        else:
+            cmdline += ['--primp', resource_filename(__name__, 'defaultJabref.prefs')]
         cmdline.append(os.curdir + os.sep + self.bibfileName)
+        print(cmdline)
         try:
             return subprocess.Popen(cmdline, shell=shell, cwd=self.directory)
         except FileNotFoundError as fnf:
@@ -221,7 +226,6 @@ class Database:
         env = jinja2.Environment(autoescape=False)
         env.filters['md5'] = md5filter
         if templateString is None:
-            from pkg_resources import resource_string
             templateString = resource_string(__name__, 'defaultTemplate.html').decode('UTF-8')
         template = env.from_string(templateString)
         revision = self.vcs.revision()

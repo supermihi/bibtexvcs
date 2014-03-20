@@ -22,6 +22,14 @@ def export(args):
     with io.open(args.output, 'wt', encoding='UTF-8') as outfile:
         outfile.write(output)
 
+def check(args):
+    from bibtexvcs import checks
+    errors, warnings = checks.performDatabaseCheck(args.db)
+    for err in errors:
+        print('FAIL: {}'.format(err))
+    for warn in warnings:
+        print('WARN: {}'.format(warn))
+
 def script():
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--database', metavar='DB', help='database root directory')
@@ -32,6 +40,7 @@ def script():
     parser_export.add_argument('output', help='output file')
     parser_export.set_defaults(func=export)
     parser_check = subparsers.add_parser('check', help='check database consistency')
+    parser_check.set_defaults(func=check)
 
     args = parser.parse_args()
     if args.database:

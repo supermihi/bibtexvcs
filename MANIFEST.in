@@ -1,1 +1,2 @@
-include bibtexvcs/*.html
+include bibtexvcs/defaultTemplate.html
+include bibtexvcs/defaultJabref.prefs

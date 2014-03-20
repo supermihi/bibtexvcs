@@ -246,17 +246,22 @@ class BtVCSGui(QtWidgets.QWidget):
 
     def runChecks_handle(self):
         self.reload()
-        ans = self.future.result()
-        if len(ans) > 0:
+        errors, warnings = self.future.result()
+        if len(errors) > 0:
             title = "Database Check Failed"
             text = 'One or more database checks failed. Please fix, then try again.'
-            detailed = "\n\n".join(str(a) for a in ans)
-            box = QtWidgets.QMessageBox(self)
-            box.setWindowTitle(title)
-            box.setText(text)
+            detailed = "\n\n".join(err.args[0] for err in errors)
+            box = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Critical, title, text, parent=self)
             box.setDetailedText(detailed)
             box.setStandardButtons(box.Close)
             box.exec_()
+        elif len(warnings) > 0:
+            box = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Warning, 'Warning',
+                    'All checks passed, but some warnings occured. Proceed anyway?', parent=self)
+            box.setDetailedText("\n\n".join(war.args[0] for war in warnings))
+            box.setStandardButtons(box.Yes | box.No)
+            if box.exec_() == QtWidgets.QDialog.Accepted:
+                self.commit_init()
         else:
             self.commit_init()
 
