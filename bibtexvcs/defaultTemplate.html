@@ -66,10 +66,10 @@ $(function() {
 	<table border="1">
 		<thead>
 			<tr>
-				<th width="25%">Author</th>
+				<th width="25%">Author/Editor</th>
 				<th width="30%">Title</th>
 				<th width="5%">Date</th>
-				<th width="20%">Journal/Proceedings</th>
+				<th width="20%">Journal/Proceedings/Publisher</th>
 				<th width="5%">Reftype</th>
 				<th width="3%">DOI/URL</th>
 				<th width="6%">Owner</th>
@@ -95,7 +95,7 @@ $(function() {
                 {% if entry["abstract"] %} <a href="javaScript:toggleInfo('{{entry.citekey}}', 'abstract')">[Abstract]</a>{% endif %}
               </p>
             <td>{{entry["date"] or entry["year"]}}</td>
-            <td class="journal">{{database.strval(entry["journal"])}}</td>
+            <td class="journal">{{database.strval(entry["journal"] or entry["booktitle"] or entry["publisher"] or entry["school"])}}</td>
             <td class="type">{{entry.entrytype}}</td>
             <td class="urldoi">{% if entry["doi"] %}
                   <a href="{{entry.doiURL()}}">DOI</a>
@@ -114,7 +114,7 @@ $(function() {
 		</tbody>
 	</table>
 	<footer>
-        <small>Created by <a href="http://pypi.python.org/pypi/bibtexvcs">BibTeX VCS</a> on {{now}}.</small>
+        <small>Created by <a href="http://pypi.python.org/pypi/bibtexvcs">BibTeX VCS</a>, vesion {{version}}, on {{now}}.</small>
     </footer>
 </body>
 

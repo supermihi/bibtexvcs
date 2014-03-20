@@ -14,7 +14,7 @@ import configparser, io, os, subprocess
 from collections import OrderedDict
 from os.path import join, exists, relpath
 
-from pkg_resources import  resource_string, resource_filename
+from pkg_resources import  resource_string, resource_filename, get_distribution
 
 from bibtexvcs.bibfile import BibFile, MacroReference
 from bibtexvcs.vcs import VCSInterface
@@ -229,8 +229,11 @@ class Database:
             templateString = resource_string(__name__, 'defaultTemplate.html').decode('UTF-8')
         template = env.from_string(templateString)
         revision = self.vcs.revision()
+        import locale
+        locale.setlocale(locale.LC_ALL, '')
         now = datetime.datetime.now().strftime('%c')
-        return template.render(database=self, docDir=docDir, revision=revision, now=now)
+        version = get_distribution('bibtexvcs').version
+        return template.render(database=self, docDir=docDir, version=version, revision=revision, now=now)
 
 
 
