@@ -84,8 +84,12 @@ class Database:
 
     def reload(self):
         parser = configparser.ConfigParser()
-        with io.open(self.configPath, encoding='UTF-8') as f:
-            confFile = f.read()
+        try:
+            with io.open(self.configPath, encoding='UTF-8') as f:
+                confFile = f.read()
+        except IOError:
+            raise DatabaseFormatError('Not a valid BibTeX VCS directory: '
+                                      'Configuration file bibtexvcs.conf not found.')
         # workaround because ConfigParser does not support sectionless entries
         try:
             parser.read_string("[root]\n" + confFile)

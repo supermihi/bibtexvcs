@@ -7,12 +7,11 @@
 # published by the Free Software Foundation
 
 from __future__ import division, print_function, unicode_literals
-import concurrent.futures, tempfile, webbrowser, sys
-import os.path
+import concurrent.futures, sys
 from contextlib import contextmanager
 
 # we support PyQt5, PyQt4 and PySide
-PYSIDE = False
+nullString = None
 try:
     from PyQt5 import QtWidgets, QtCore
     from PyQt5.QtCore import Qt
@@ -23,14 +22,14 @@ except ImportError:
         from PyQt4 import QtGui, QtCore
         from PyQt4.QtCore import Qt
         QtWidgets = QtGui
+        nullString = QtCore.QString()
     except ImportError:
         from PySide import QtGui, QtCore
         from PySide.QtCore import Qt
         QtWidgets = QtGui
-        PYSIDE = True
 
 from bibtexvcs.vcs import MergeConflict, typeMap, AuthError, VCSInterface
-from bibtexvcs.database import Database, Journal, JournalsFile, DatabaseFormatError, BTVCSCONF
+from bibtexvcs.database import Database, Journal, JournalsFile, DatabaseFormatError
 from bibtexvcs import config
 
 def standardIcon(widget, standardPixmap):
@@ -45,8 +44,6 @@ class BtVCSGui(QtWidgets.QWidget):
         super(BtVCSGui, self).__init__()
         self.setWindowTitle("BibTeX VCS")
 
-        layout = QtWidgets.QVBoxLayout()
-
         dbLayout = QtWidgets.QHBoxLayout()
         self.dbLabel = QtWidgets.QLabel("Please open a database")
         dbSelect = QtWidgets.QPushButton(standardIcon(self, "SP_DialogOpenButton"), "Open")
@@ -60,6 +57,7 @@ class BtVCSGui(QtWidgets.QWidget):
         dbLayout.addStretch()
         dbLayout.addWidget(dbSelect)
         dbLayout.addWidget(dbClone)
+        layout = QtWidgets.QVBoxLayout()
         layout.addLayout(dbLayout)
         self.linkLabel = QtWidgets.QLabel('')
         self.linkLabel.setOpenExternalLinks(True)
@@ -67,22 +65,18 @@ class BtVCSGui(QtWidgets.QWidget):
         self.setLayout(layout)
         self.guiComplete = False
 
-        # helpers for asynchronous function calls
+        # helpers for asynchronous function calls (see runAsync())
         self.executor = concurrent.futures.ThreadPoolExecutor(1)
         self.futureTimer = QtCore.QTimer(self)
-        self.futureTimer.setInterval(10)
+        self.futureTimer.setInterval(20)
         self.futureTimer.timeout.connect(self._updateFuture)
         self.prog = QtWidgets.QProgressDialog(self)
         self.prog.setRange(0, 0)
-        if QT5 or PYSIDE:
-            self.prog.setCancelButtonText(None)
-        else:
-            self.prog.setCancelButtonText(QtCore.QString())
+        self.prog.setCancelButtonText(nullString)
         self.prog.setWindowModality(Qt.WindowModal)
 
         self.db = None
         self.show()
-
         self.runAsync("Opening previous database ...", self.loadDefault, config.getDefaultDatabase)
 
     def loadDefault(self):
@@ -112,6 +106,14 @@ class BtVCSGui(QtWidgets.QWidget):
             self.guiComplete = True
         self.reload()
         self.updateRepository()
+
+    def reload(self):
+        self.journalsTable.setDB(self.db)
+        if self.db.publicLink:
+            self.linkLabel.setText('Web: <a href="{0}">{0}</a>'.format(self.db.publicLink))
+        self.linkLabel.setVisible(self.db.publicLink is not None)
+        self.dbLabel.setText("Database: <i>{}</i>".format(self.db.directory))
+        self.setWindowTitle("BibTeX VCS: {}".format(self.db.name))
 
     def runAsync(self, labelText, finishedCall, fn, *args, **kwargs):
         """Helper function for asynchronous calls during which a progress dialog is shown. The
@@ -171,22 +173,11 @@ class BtVCSGui(QtWidgets.QWidget):
         except Exception as e:
             M.critical(self, 'Unhandled exception', str(e))
 
-    def reload(self):
-        self.journalsTable.setDB(self.db)
-        if self.db.publicLink:
-            self.linkLabel.setText('Web: <a href="{0}">{0}</a>'.format(self.db.publicLink))
-        self.linkLabel.setVisible(self.db.publicLink is not None)
-        self.dbLabel.setText("Database: <i>{}</i>".format(self.db.directory))
-        self.setWindowTitle("BibTeX VCS: {}".format(self.db.name))
-
     def openDialog(self):
-        ans = QtWidgets.QFileDialog.getOpenFileName(self, "Select Database", "",
-                    "BibTeX VCS configuration files ({})".format(BTVCSCONF))
-        filename = ans[0] if QT5 or PYSIDE else ans
-        if len(filename) > 0:
-            directory = os.path.dirname(str(filename))
+        ans = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Database")
+        if ans:
             with self.catchExceptions():
-                db = Database(directory)
+                db = Database(ans)
                 self.setDB(db)
 
     def cloneDialog(self):
@@ -300,17 +291,11 @@ class JournalsWidget(QtWidgets.QWidget):
         self.table = QtWidgets.QTableWidget(len(db.journals), 3)
         self.table.setHorizontalHeaderLabels(["Full", "Abbreviated", "Macro"])
         self.setDB(db)
-        try:  # Qt5
-            self.table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
-            self.table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.Stretch)
-            self.table.horizontalHeader().setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
-            self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
-        except AttributeError:  # Qt4
-            self.table.horizontalHeader().setResizeMode(0, QtWidgets.QHeaderView.Stretch)
-            self.table.horizontalHeader().setResizeMode(1, QtWidgets.QHeaderView.Stretch)
-            self.table.horizontalHeader().setResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
-            self.table.verticalHeader().setResizeMode(QtWidgets.QHeaderView.ResizeToContents)
-
+        fName = 'setSectionResizeMode' if QT5 else 'setResizeMode'
+        getattr(self.table.horizontalHeader(), fName)(0, QtWidgets.QHeaderView.Stretch)
+        getattr(self.table.horizontalHeader(), fName)(1, QtWidgets.QHeaderView.Stretch)
+        getattr(self.table.horizontalHeader(), fName)(2, QtWidgets.QHeaderView.ResizeToContents)
+        getattr(self.table.verticalHeader(), fName)(QtWidgets.QHeaderView.ResizeToContents)
         layout = QtWidgets.QVBoxLayout()
         journalsLabel = QtWidgets.QLabel("<h3>Journals Management</h3>")
         newJournalButton = QtWidgets.QPushButton("Add Journal")
@@ -328,7 +313,6 @@ class JournalsWidget(QtWidgets.QWidget):
         self.setLayout(layout)
         self.table.cellChanged.connect(self.updateJournalsFile)
         self.dontUpdate = False
-        self.setContentsMargins(0, 0, 0, 0)
         layout.setContentsMargins(0, 0, 0, 0)
 
     def makeItem(self, text, editable=True):
@@ -385,6 +369,7 @@ class JournalsWidget(QtWidgets.QWidget):
 
 
 class CloneDialog(QtWidgets.QDialog):
+
     def __init__(self, parent=None):
         super(CloneDialog, self).__init__(parent)
         layout = QtWidgets.QGridLayout()
@@ -400,7 +385,8 @@ class CloneDialog(QtWidgets.QDialog):
         self.targetEdit.setPlaceholderText('local checkout directory')
         layout.addWidget(self.targetEdit, 1, 1)
         chooseTargetButton = QtWidgets.QPushButton('Choose...')
-        chooseTargetButton.clicked.connect(self.chooseTarget)
+        chooseTargetButton.clicked.connect(lambda: self.targetEdit.setText(
+                QtWidgets.QFileDialog.getExistingDirectory(self, 'Choose Target')))
         layout.addWidget(chooseTargetButton, 1, 2)
         Ok = QtWidgets.QDialogButtonBox.Ok
         Cancel = QtWidgets.QDialogButtonBox.Cancel
@@ -417,11 +403,6 @@ class CloneDialog(QtWidgets.QDialog):
     def checkOk(self):
         ok = all((edit.text().strip() != '' for edit in (self.targetEdit, self.urlEdit)))
         self.btbx.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(ok)
-
-    def chooseTarget(self):
-        target = QtWidgets.QFileDialog.getExistingDirectory(self, 'Choose Target')
-        if target:
-            self.targetEdit.setText(target)
 
 
 class LoginDialog(QtWidgets.QDialog):
@@ -448,7 +429,6 @@ class LoginDialog(QtWidgets.QDialog):
         btbx.accepted.connect(self.accept)
         btbx.rejected.connect(self.reject)
         layout.addWidget(btbx, 4, 0, 1, 2)
-
         self.setLayout(layout)
 
     @staticmethod
