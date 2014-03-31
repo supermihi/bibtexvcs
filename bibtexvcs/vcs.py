@@ -126,6 +126,7 @@ class MercurialInterface(VCSInterface):
     def __init__(self, *args, **kwargs):
         super(MercurialInterface, self).__init__(*args, **kwargs)
         self.hasRemote = len(self.callHg("showconfig", "paths.default")) > 0
+        self.hgid = self.callHg('id', '-i')
 
     def callHg(self, *args):
         """Calls the ``hg`` script in the database directory with the given arguments.
@@ -178,14 +179,14 @@ class MercurialInterface(VCSInterface):
 
     def update(self):
         if self.hasRemote:
-            cmd = ['pull', '--update']
-        else:
-            cmd = ['update']
-        ans = self.callHg(*cmd).decode()
-        if 'no changes found' in ans:
-            return False
-        self.db.reload()
-        return True
+            self.callHg('pull')
+        self.callHg('update')
+        newId = self.callHg('id', '-i')
+        if newId != self.hgid:
+            self.hgid = newId
+            self.db.reload()
+            return True
+        return False
 
     def commit(self, msg=None):
         if not self.localChanges():
@@ -208,6 +209,7 @@ class MercurialInterface(VCSInterface):
         if self.hasRemote:
             self.callHg('push')
         self.db.reload()
+        self.hgid = self.callHg('id', '-i')
         return True
 
     def revision(self):
