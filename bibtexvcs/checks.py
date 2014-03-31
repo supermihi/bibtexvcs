@@ -150,3 +150,9 @@ def checkOwnerExists(database):
     for entry in database.bibfile.values():
         if 'owner' not in entry:
             yield CheckFailed('Entry "{}" has no owner.'.format(entry.citekey))
+
+def checkNoMarkedEntry(database):
+    for entry in database.bibfile.values():
+        if '__markedentry' in entry:
+            yield CheckFailed('Entry "{}" is marked in jabref:\n{}'
+                              .format(entry.citekey, entry['__markedentry']))
