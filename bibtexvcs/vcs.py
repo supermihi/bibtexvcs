@@ -7,18 +7,25 @@
 # published by the Free Software Foundation
 
 from __future__ import division, print_function, unicode_literals
-import io, os, subprocess, sys
+import io
+import os
+import subprocess
+import sys
+
 from bibtexvcs import config
+
 
 class MergeConflict(Exception):
     """Raised when merge conflicts occur on a VCS update operation."""
     pass
+
 
 class AuthError(Exception):
     """Raised on authentication errors when accessing remote repositories."""
     pass
 
 typeMap = {}
+
 
 class VCSMeta(type):
     def __init__(cls, name, base, namespace):
@@ -27,6 +34,7 @@ class VCSMeta(type):
             typeMap[cls.vcsType] = cls
 
 VCSBase = VCSMeta('VCSBase' if sys.version_info.major >= 3 else b'VCSBase', (object,), {})
+
 
 class VCSInterface(VCSBase):
     """Interface to the version control system (VCS) of a :mod:`bibtexvcs` database.

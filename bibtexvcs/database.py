@@ -157,7 +157,7 @@ class Database:
     def strval(self, value):
         if isinstance(value, MacroReference):
             if value.name in self.bibfile.macroDefinitions:
-                return self.bibfile.macroDefinitions[value.macro]
+                return self.bibfile.macroDefinitions[value.name]
             if value.name in self.journals:
                 return self.journals[value.name].full
         return str(value)
@@ -238,7 +238,6 @@ class Database:
         now = datetime.datetime.now().strftime('%c')
         version = get_distribution('bibtexvcs').version
         return template.render(database=self, docDir=docDir, version=version, revision=revision, now=now)
-
 
 
 class Journal:

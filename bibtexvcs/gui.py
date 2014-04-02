@@ -7,8 +7,10 @@
 # published by the Free Software Foundation
 
 from __future__ import division, print_function, unicode_literals
-import concurrent.futures, sys
+import concurrent.futures
+import sys
 from contextlib import contextmanager
+
 
 # we support PyQt5, PyQt4 and PySide
 nullString = None
@@ -46,11 +48,11 @@ class BtVCSGui(QtWidgets.QWidget):
 
         dbLayout = QtWidgets.QHBoxLayout()
         self.dbLabel = QtWidgets.QLabel("Please open a database")
-        dbSelect = QtWidgets.QPushButton(standardIcon(self, "SP_DialogOpenButton"), "Open")
-        dbSelect.setToolTip("Open existing local checkout of a BibTeX VCS database")
+        dbSelect = QtWidgets.QPushButton(standardIcon(self, 'SP_DialogOpenButton'), '&Open')
+        dbSelect.setToolTip('Open existing local checkout of a BibTeX VCS database')
         dbSelect.clicked.connect(self.openDialog)
-        dbClone = QtWidgets.QPushButton(standardIcon(self, "SP_DriveNetIcon"), "Clone")
-        dbClone.setToolTip("Clone a BibTeX VCS database from a remote repository")
+        dbClone = QtWidgets.QPushButton(standardIcon(self, 'SP_DriveNetIcon'), '&Clone')
+        dbClone.setToolTip('Clone a BibTeX VCS database from a remote repository')
         dbClone.clicked.connect(self.cloneDialog)
 
         dbLayout.addWidget(self.dbLabel)
@@ -92,11 +94,11 @@ class BtVCSGui(QtWidgets.QWidget):
         self.db = db
         if not self.guiComplete:
             buttonLayout = QtWidgets.QHBoxLayout()
-            updateButton = QtWidgets.QPushButton(standardIcon(self, "SP_ArrowDown"), "1: Update")
+            updateButton = QtWidgets.QPushButton(standardIcon(self, 'SP_ArrowDown'), '&1: Update')
             updateButton.clicked.connect(self.updateRepository)
-            jabrefButton = QtWidgets.QPushButton("2: JabRef")
+            jabrefButton = QtWidgets.QPushButton('&2: JabRef')
             jabrefButton.clicked.connect(self.jabref)
-            commitButton = QtWidgets.QPushButton(standardIcon(self, "SP_ArrowUp"), "3: Commit")
+            commitButton = QtWidgets.QPushButton(standardIcon(self, 'SP_ArrowUp'), '&3: Commit')
             commitButton.clicked.connect(self.runChecks)
             for button in updateButton, jabrefButton, commitButton:
                 buttonLayout.addWidget(button)
@@ -289,7 +291,7 @@ class JournalsWidget(QtWidgets.QWidget):
     def __init__(self, db):
         super(JournalsWidget, self).__init__()
         self.table = QtWidgets.QTableWidget(len(db.journals), 3)
-        self.table.setHorizontalHeaderLabels(["Full", "Abbreviated", "Macro"])
+        self.table.setHorizontalHeaderLabels(['Full', 'Abbreviated', 'Macro'])
         self.setDB(db)
         fName = 'setSectionResizeMode' if QT5 else 'setResizeMode'
         getattr(self.table.horizontalHeader(), fName)(0, QtWidgets.QHeaderView.Stretch)
@@ -297,9 +299,9 @@ class JournalsWidget(QtWidgets.QWidget):
         getattr(self.table.horizontalHeader(), fName)(2, QtWidgets.QHeaderView.ResizeToContents)
         getattr(self.table.verticalHeader(), fName)(QtWidgets.QHeaderView.ResizeToContents)
         layout = QtWidgets.QVBoxLayout()
-        journalsLabel = QtWidgets.QLabel("<h3>Journals Management</h3>")
-        newJournalButton = QtWidgets.QPushButton("Add Journal")
-        delJournalButton = QtWidgets.QPushButton(standardIcon(self, "SP_TrashIcon"), "Delete")
+        journalsLabel = QtWidgets.QLabel('<h3>Journals Management</h3>')
+        newJournalButton = QtWidgets.QPushButton('&Add Journal')
+        delJournalButton = QtWidgets.QPushButton(standardIcon(self, 'SP_TrashIcon'), '&Delete')
         delJournalButton.clicked.connect(self.deleteCurrent)
         newJournalButton.clicked.connect(self.addJournal)
 
@@ -339,13 +341,13 @@ class JournalsWidget(QtWidgets.QWidget):
 
     def addJournal(self):
         macro, ok = QtWidgets.QInputDialog.getText(self.parent(), "New Journal's Macro",
-            "Please enter the <i>Macro</i> of the new journal")
+                'Please enter the <i>Macro</i> of the new journal')
         if not ok:
             return
         for i in range(self.table.rowCount()):
             if self.table.item(i, 2).text() == macro:
-                QtWidgets.QMessageBox.critcical(self.parent(), "Macro exists",
-                    "The macro '{}' is already chosen by another journal.".format(macro))
+                QtWidgets.QMessageBox.critcical(self.parent(), 'Macro exists',
+                        "The macro '{}' is already chosen by another journal.".format(macro))
                 return
         index = self.table.rowCount()
         self.dontUpdate = True

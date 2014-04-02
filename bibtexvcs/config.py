@@ -7,13 +7,17 @@
 # published by the Free Software Foundation
 
 """
-The :mod:`config <bibtexvcs.config>` module contains helpers for persisten configuration of BibTeX VCS.
+The :mod:`config <bibtexvcs.config>` module contains helpers for persisten configuration of BibTeX
+VCS.
 Currently, this allows to store VCS auth information and a default database to open at startup.
 """
 
 from __future__ import division, print_function, unicode_literals
-import configparser, io, os.path
+import configparser
+import io
+import os.path
 import atexit
+
 
 def getConfigPath():
     """Return the path of the configuration file. Defaults to ``~/.config/bibtexvcs`` on Unix,
@@ -30,11 +34,13 @@ def getConfigPath():
 
 _config = None
 
+
 def init():
     """Initialize `_config` from the config file."""
     global _config
     _config = configparser.ConfigParser()
     _config.read(getConfigPath())
+
 
 def ensureInit(func):
     """Decorator that calls :func:`init()` if necessary."""
@@ -45,6 +51,7 @@ def ensureInit(func):
         return func(*args, **kwargs)
     return newFunc
 
+
 @ensureInit
 def setDefaultDatabase(db):
     """Sets the default database."""
@@ -54,6 +61,7 @@ def setDefaultDatabase(db):
         if _config.getboolean(section, 'default', fallback=False):
             del _config[section]['default']
     _config[db.directory]['default'] = 'yes'
+
 
 @ensureInit
 def getDefaultDatabase():
@@ -68,6 +76,7 @@ def getDefaultDatabase():
     except:
         return None
 
+
 @ensureInit
 def setAuthInformation(db):
     """Set username / password information for the given database."""
@@ -75,6 +84,7 @@ def setAuthInformation(db):
         _config[db.directory] = {}
     _config[db.directory]['username'] = db.vcs.username
     _config[db.directory]['password'] = db.vcs.password
+
 
 @ensureInit
 def getAuthInformation(db):
@@ -85,6 +95,7 @@ def getAuthInformation(db):
         return _config[db.directory]['username'], _config[db.directory]['password']
     except KeyError:
         return None
+
 
 @atexit.register
 def save():
