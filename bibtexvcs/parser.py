@@ -109,7 +109,7 @@ namesList = LCURLY + delimitedList(name, NAME_SEP) + RCURLY
 
 namesField = (CaselessLiteral("author") | CaselessLiteral('editor')).setParseAction(lambda t: t[0].lower())
 # we treat the author field special because we parse names
-fieldDef = Group((namesField + EQUALS + namesList)) | Group((fieldName + EQUALS + fieldValue))
+fieldDef = Group(namesField + EQUALS + namesList) | Group(fieldName + EQUALS + fieldValue)
 entryContents = Dict(ZeroOrMore(fieldDef + COMMA) + Optional(fieldDef))
 
 
