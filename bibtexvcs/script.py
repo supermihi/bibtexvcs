@@ -19,8 +19,11 @@ def export(args):
     else:
         templateString = None
     output = args.db.export(templateString=templateString, docDir=args.docs)
-    with io.open(args.output, 'wt', encoding='UTF-8') as outfile:
-        outfile.write(output)
+    if args.output == '-':
+        print(output)
+    else:
+        with io.open(args.output, 'wt', encoding='UTF-8') as outfile:
+            outfile.write(output)
 
 def check(args):
     from bibtexvcs import checks

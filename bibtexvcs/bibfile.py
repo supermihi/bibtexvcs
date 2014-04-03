@@ -36,9 +36,7 @@ class BibFile(OrderedDict):
         if filename:
             with io.open(filename, "rt", encoding='UTF-8') as bibFile:
                 bibstring = bibFile.read()
-        print('parsing')
         bibParsed = parser.bibfile.parseString(bibstring, parseAll=True)
-        print('parsed')
         self.comments = []
         self.macroDefinitions = OrderedDict()
         for item in bibParsed:
