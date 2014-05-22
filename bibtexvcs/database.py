@@ -196,7 +196,6 @@ class Database:
         else:
             cmdline += ['--primp', resource_filename(__name__, 'defaultJabref.prefs')]
         cmdline.append(os.curdir + os.sep + self.bibfileName)
-        print(cmdline)
         try:
             return subprocess.Popen(cmdline, shell=shell, cwd=self.directory)
         except FileNotFoundError as fnf:

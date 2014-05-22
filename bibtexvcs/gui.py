@@ -253,7 +253,7 @@ class BtVCSGui(QtWidgets.QWidget):
                     'All checks passed, but some warnings occured. Proceed anyway?', parent=self)
             box.setDetailedText("\n\n".join(war.args[0] for war in warnings))
             box.setStandardButtons(box.Yes | box.No)
-            if box.exec_() == QtWidgets.QDialog.Accepted:
+            if box.exec_() == box.Yes:
                 self.commit_init()
         else:
             self.commit_init()
@@ -317,7 +317,8 @@ class JournalsWidget(QtWidgets.QWidget):
         self.dontUpdate = False
         layout.setContentsMargins(0, 0, 0, 0)
 
-    def makeItem(self, text, editable=True):
+    @staticmethod
+    def makeItem(text, editable=True):
         item = QtWidgets.QTableWidgetItem(text)
         if not editable:
             item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
