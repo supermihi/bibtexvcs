@@ -168,7 +168,7 @@ class Database:
         """
         base = self.bibfilePath[:-4]
         if not exists(base + '_abbr.bib') or not exists(base + '_full.bib') or \
-                os.path.getmtime(self.bibfilePath) > os.path.getmtime(base + '_abbr.bib'):
+                os.path.getmtime(self.journalsPath) > os.path.getmtime(base + '_abbr.bib'):
             self.journals.writeBibfiles(base)
 
     def runJabref(self):

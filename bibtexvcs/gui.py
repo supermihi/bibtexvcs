@@ -34,9 +34,11 @@ from bibtexvcs.vcs import MergeConflict, typeMap, AuthError, VCSInterface
 from bibtexvcs.database import Database, Journal, JournalsFile, DatabaseFormatError
 from bibtexvcs import config
 
+
 def standardIcon(widget, standardPixmap):
     """Helper function to generate a QIcon from a standardPixmap."""
     return widget.style().standardIcon(getattr(widget.style(), standardPixmap))
+
 
 class BtVCSGui(QtWidgets.QWidget):
     """Main window of the BibTeX VCS GUI application.
@@ -348,7 +350,7 @@ class JournalsWidget(QtWidgets.QWidget):
         for i in range(self.table.rowCount()):
             if self.table.item(i, 2).text() == macro:
                 QtWidgets.QMessageBox.critcical(self.parent(), 'Macro exists',
-                        "The macro '{}' is already chosen by another journal.".format(macro))
+                        "The macro '{}' is already in use by another journal".format(macro))
                 return
         index = self.table.rowCount()
         self.dontUpdate = True
@@ -358,17 +360,20 @@ class JournalsWidget(QtWidgets.QWidget):
         self.table.setItem(index, 0, self.makeItem(macro))
         self.dontUpdate = False
         self.table.setItem(index, 1, self.makeItem(macro))
+        self.table.selectRow(index)
 
     def updateJournalsFile(self):
         if self.dontUpdate:
             return
         journals = []
         for i in range(self.table.rowCount()):
-            journals.append(Journal(full=self.table.item(i, 0).text(),
-                                    abbr=self.table.item(i, 1).text(),
-                                    macro=self.table.item(i, 2).text()))
+            full, abbr, macro = [self.table.item(i, j).text() for j in (0, 1, 2)]
+            if sys.version_info.major == 2 and not isinstance(full, unicode):
+                full, abbr, macro = [unicode(s) for s in (full, abbr, macro)]
+            journals.append(Journal(full=full, abbr=abbr, macro=macro))
         self.db.journals = JournalsFile(journals=journals)
         self.db.journals.write(self.db.journalsPath)
+        self.db.makeJournalBibfiles()
 
 
 class CloneDialog(QtWidgets.QDialog):
