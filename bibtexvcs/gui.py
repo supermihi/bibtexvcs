@@ -116,7 +116,8 @@ class BtVCSGui(QtWidgets.QWidget):
         if self.db.publicLink:
             self.linkLabel.setText('Web: <a href="{0}">{0}</a>'.format(self.db.publicLink))
         self.linkLabel.setVisible(self.db.publicLink is not None)
-        self.dbLabel.setText("Database: <i>{}</i>".format(self.db.directory))
+        self.dbLabel.setText('Database: <i>{}</i><br />r. {}, changed {}'
+                             .format(self.db.directory, *self.db.vcs.revision()))
         self.setWindowTitle("BibTeX VCS: {}".format(self.db.name))
 
     def runAsync(self, labelText, finishedCall, fn, *args, **kwargs):
@@ -289,15 +290,15 @@ class BtVCSGui(QtWidgets.QWidget):
 
 
 class JournalsWidget(QtWidgets.QWidget):
-
+    """Widget for displaying the journal abbreviations, including buttons to add/remove entries."""
     def __init__(self, db):
         super(JournalsWidget, self).__init__()
         self.table = QtWidgets.QTableWidget(len(db.journals), 3)
         self.table.setHorizontalHeaderLabels(['Full', 'Abbreviated', 'Macro'])
         self.setDB(db)
         fName = 'setSectionResizeMode' if QT5 else 'setResizeMode'
-        getattr(self.table.horizontalHeader(), fName)(0, QtWidgets.QHeaderView.Stretch)
-        getattr(self.table.horizontalHeader(), fName)(1, QtWidgets.QHeaderView.Stretch)
+        for i in range(2):
+            getattr(self.table.horizontalHeader(), fName)(0, QtWidgets.QHeaderView.Interactive)
         getattr(self.table.horizontalHeader(), fName)(2, QtWidgets.QHeaderView.ResizeToContents)
         getattr(self.table.verticalHeader(), fName)(QtWidgets.QHeaderView.ResizeToContents)
         layout = QtWidgets.QVBoxLayout()
@@ -336,6 +337,7 @@ class JournalsWidget(QtWidgets.QWidget):
             self.table.setItem(i, 1, self.makeItem(journal.abbr))
             self.table.setItem(i, 2, self.makeItem(journal.macro, False))
         self.dontUpdate = False
+        self.table.horizontalHeader().resizeSections(QtWidgets.QHeaderView.ResizeToContents)
 
     def deleteCurrent(self):
         currentRow = self.table.currentRow()

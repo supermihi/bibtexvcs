@@ -237,7 +237,7 @@ class NoVCSInterface(VCSInterface):
     def __getattribute__(self, name):
         if name in ("add", "localChanges", "update", "commit"):
             return lambda *args, **kwargs: False
-        return super().__getattribute__(name)
+        return VCSInterface.__getattribute__(self, name)
 
     def revision(self):
         return None, None
