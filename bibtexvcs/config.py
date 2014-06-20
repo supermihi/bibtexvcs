@@ -73,7 +73,8 @@ def getDefaultDatabase():
                 return Database(section)
         # fallback: open last in config file
         return Database(_config.sections[-1])
-    except:
+    except Exception as e:
+        print(e)
         return None
 
 

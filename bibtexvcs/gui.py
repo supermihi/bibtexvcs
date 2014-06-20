@@ -303,6 +303,8 @@ class JournalsWidget(QtWidgets.QWidget):
         getattr(self.table.verticalHeader(), fName)(QtWidgets.QHeaderView.ResizeToContents)
         layout = QtWidgets.QVBoxLayout()
         journalsLabel = QtWidgets.QLabel('<h3>Journals Management</h3>')
+        self.searchEdit = QtWidgets.QLineEdit()
+        self.searchEdit.textChanged.connect(self.search)
         newJournalButton = QtWidgets.QPushButton('&Add Journal')
         delJournalButton = QtWidgets.QPushButton(standardIcon(self, 'SP_TrashIcon'), '&Delete')
         delJournalButton.clicked.connect(self.deleteCurrent)
@@ -310,6 +312,7 @@ class JournalsWidget(QtWidgets.QWidget):
 
         buttonLayout = QtWidgets.QHBoxLayout()
         buttonLayout.addWidget(journalsLabel)
+        buttonLayout.addWidget(self.searchEdit)
         buttonLayout.addStretch()
         buttonLayout.addWidget(newJournalButton)
         buttonLayout.addWidget(delJournalButton)
@@ -319,6 +322,15 @@ class JournalsWidget(QtWidgets.QWidget):
         self.table.cellChanged.connect(self.updateJournalsFile)
         self.dontUpdate = False
         layout.setContentsMargins(0, 0, 0, 0)
+
+    def search(self, text):
+        for row in range(self.table.rowCount()):
+            hide = True
+            for col in range(self.table.columnCount()):
+                if text in self.table.item(row, col).text():
+                    hide = False
+                    break
+            self.table.setRowHidden(row, hide)
 
     @staticmethod
     def makeItem(text, editable=True):
