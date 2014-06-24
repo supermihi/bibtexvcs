@@ -147,12 +147,13 @@ class Database:
         return docs
 
     def existingDocuments(self):
-        """Walks recursively through the :attr:`documents` directory and return the paths of all files
-        contained in there, relative to :attr:`documentsPath`.
+        """Walks recursively through the :attr:`documents` directory and return the paths of all
+        files contained in there, relative to :attr:`documentsPath`.
         """
         for dirpath, _, filenames in os.walk(self.documentsPath):
             for file in filenames:
-                yield relpath(join(dirpath, file), self.documentsPath)
+                if file != '.DS_Store':
+                    yield relpath(join(dirpath, file), self.documentsPath)
 
     def strval(self, value):
         if isinstance(value, MacroReference):
