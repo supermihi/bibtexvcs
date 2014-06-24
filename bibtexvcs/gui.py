@@ -9,6 +9,7 @@
 from __future__ import division, print_function, unicode_literals
 import concurrent.futures
 import sys
+import traceback
 from contextlib import contextmanager
 
 
@@ -30,7 +31,7 @@ except ImportError:
         from PySide.QtCore import Qt
         QtWidgets = QtGui
 
-from bibtexvcs.vcs import MergeConflict, typeMap, AuthError, VCSInterface
+from bibtexvcs.vcs import MergeConflict, typeMap, AuthError, VCSNotFoundError, VCSInterface
 from bibtexvcs.database import Database, Journal, JournalsFile, DatabaseFormatError
 from bibtexvcs import config
 
@@ -87,9 +88,10 @@ class BtVCSGui(QtWidgets.QWidget):
         """Opens the default database as defined in :mod:`bibtexvcs`'s config file. If no default
         database is configured, nothing happens.
         """
-        lastDB = self.future.result()
-        if lastDB:
-            self.setDB(lastDB)
+        with self.catchExceptions():
+            lastDB = self.future.result()
+            if lastDB:
+                self.setDB(lastDB)
 
     def setDB(self, db):
         """Set the current database to `db`."""
@@ -175,8 +177,10 @@ class BtVCSGui(QtWidgets.QWidget):
                     onAuthEntered()
                     return
             M.critical(self, "Authorization Required", str(a))
+        except VCSNotFoundError as e:
+            M.critical(self, 'VCS program not found', str(e))
         except Exception as e:
-            M.critical(self, 'Unhandled exception', str(e))
+            M.critical(self, 'Unhandled {}'.format(type(e)), traceback.format_exc())
 
     def openDialog(self):
         ans = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Database")
@@ -474,7 +478,8 @@ def run():
             window = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Critical,
                                            "New version available",
                                            "A new version of BibTeX VCS ({}) is available. "
-                                           "Please update, then start again.".format(newVersion),
+                                           "Please update (pip install -U bibtexvcs), then start "
+                                           "again.".format(newVersion),
                                            QtWidgets.QMessageBox.Ok)
             window.show()
             window.accepted.connect(app.exit)

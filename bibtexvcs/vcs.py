@@ -24,7 +24,11 @@ class AuthError(Exception):
     """Raised on authentication errors when accessing remote repositories."""
     pass
 
-typeMap = {}
+
+class VCSNotFoundError(Exception):
+    """Raised when the necessary VCS binary (e.g. "hg") is not installed."""
+
+typeMap = {} # maps name of a VCS (e.g. 'mercurial') to class instance
 
 
 class VCSMeta(type):
@@ -175,6 +179,8 @@ class MercurialInterface(VCSInterface):
                                     'You have to fix them manually before proceeding to use this '
                                     'tool.')
             raise e
+        except OSError as e:
+            raise VCSNotFoundError('Could not run "hg". Please install mercurial')
 
     def add(self, path):
         self.callHg('add', path)
