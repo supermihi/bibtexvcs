@@ -298,12 +298,13 @@ class JournalsWidget(QtWidgets.QWidget):
     def __init__(self, db):
         super(JournalsWidget, self).__init__()
         self.table = QtWidgets.QTableWidget(len(db.journals), 3)
-        self.table.setHorizontalHeaderLabels(['Full', 'Abbreviated', 'Macro'])
+        self.table.setHorizontalHeaderLabels(['Macro', 'Abbreviated', 'Full'])
         self.setDB(db)
         fName = 'setSectionResizeMode' if QT5 else 'setResizeMode'
-        for i in range(2):
-            getattr(self.table.horizontalHeader(), fName)(0, QtWidgets.QHeaderView.Interactive)
         getattr(self.table.horizontalHeader(), fName)(2, QtWidgets.QHeaderView.ResizeToContents)
+        for i in range(1,3):
+            getattr(self.table.horizontalHeader(), fName)(i, QtWidgets.QHeaderView.Interactive)
+
         getattr(self.table.verticalHeader(), fName)(QtWidgets.QHeaderView.ResizeToContents)
         layout = QtWidgets.QVBoxLayout()
         journalsLabel = QtWidgets.QLabel('<h3>Journals Management</h3>')
@@ -349,9 +350,9 @@ class JournalsWidget(QtWidgets.QWidget):
         self.table.clearContents()
         self.table.setRowCount(len(self.db.journals))
         for i, journal in enumerate(self.db.journals.values()):
-            self.table.setItem(i, 0, self.makeItem(journal.full))
+            self.table.setItem(i, 0, self.makeItem(journal.macro, False))
             self.table.setItem(i, 1, self.makeItem(journal.abbr))
-            self.table.setItem(i, 2, self.makeItem(journal.macro, False))
+            self.table.setItem(i, 2, self.makeItem(journal.full))
         self.dontUpdate = False
         self.table.horizontalHeader().resizeSections(QtWidgets.QHeaderView.ResizeToContents)
 
