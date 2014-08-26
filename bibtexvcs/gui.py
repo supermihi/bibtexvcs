@@ -374,9 +374,9 @@ class JournalsWidget(QtWidgets.QWidget):
         index = self.table.rowCount()
         self.dontUpdate = True
         self.table.insertRow(index)
-        self.table.setItem(index, 2, self.makeItem(macro, False))
+        self.table.setItem(index, 2, self.makeItem(macro))
         # initialize abbr and full with the macro
-        self.table.setItem(index, 0, self.makeItem(macro))
+        self.table.setItem(index, 0, self.makeItem(macro, False))
         self.dontUpdate = False
         self.table.setItem(index, 1, self.makeItem(macro))
         self.table.selectRow(index)
@@ -386,7 +386,7 @@ class JournalsWidget(QtWidgets.QWidget):
             return
         journals = []
         for i in range(self.table.rowCount()):
-            full, abbr, macro = [self.table.item(i, j).text() for j in (0, 1, 2)]
+            macro, abbr, full = [self.table.item(i, j).text() for j in (0, 1, 2)]
             if sys.version_info.major == 2 and not isinstance(full, unicode):
                 full, abbr, macro = [unicode(s) for s in (full, abbr, macro)]
             journals.append(Journal(full=full, abbr=abbr, macro=macro))
@@ -467,6 +467,9 @@ class LoginDialog(QtWidgets.QDialog):
 
 
 def run():
+    if len (sys.argv) > 1 and sys.argv[1] == '-j':
+        config.getDefaultDatabase().runJabref()
+        sys.exit(0)
     import bibtexvcs, pkg_resources
     from distutils.version import StrictVersion
     app = QtWidgets.QApplication(sys.argv)
@@ -479,8 +482,8 @@ def run():
             window = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Critical,
                                            "New version available",
                                            "A new version of BibTeX VCS ({}) is available. "
-                                           "Please update (pip install -U bibtexvcs), then start "
-                                           "again.".format(newVersion),
+                                           "Please update (pip install -U --user bibtexvcs), "
+                                           "then start again.".format(newVersion),
                                            QtWidgets.QMessageBox.Ok)
             window.show()
             window.accepted.connect(app.exit)
