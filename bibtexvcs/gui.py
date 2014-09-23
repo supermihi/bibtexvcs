@@ -98,13 +98,15 @@ class BtVCSGui(QtWidgets.QWidget):
         self.db = db
         if not self.guiComplete:
             buttonLayout = QtWidgets.QHBoxLayout()
-            updateButton = QtWidgets.QPushButton(standardIcon(self, 'SP_ArrowDown'), '&1: Update')
-            updateButton.clicked.connect(self.updateRepository)
+            self.updateButton = QtWidgets.QPushButton(standardIcon(self, 'SP_ArrowDown'),
+                                                      '&1: Update')
+            self.updateButton.clicked.connect(self.updateRepository)
             jabrefButton = QtWidgets.QPushButton('&2: JabRef')
             jabrefButton.clicked.connect(self.jabref)
-            commitButton = QtWidgets.QPushButton(standardIcon(self, 'SP_ArrowUp'), '&3: Commit')
-            commitButton.clicked.connect(self.runChecks)
-            for button in updateButton, jabrefButton, commitButton:
+            self.commitButton = QtWidgets.QPushButton(standardIcon(self, 'SP_ArrowUp'),
+                                                      '&3: Commit')
+            self.commitButton.clicked.connect(self.runChecks)
+            for button in self.updateButton, jabrefButton, self.commitButton:
                 buttonLayout.addWidget(button)
             self.journalsTable = JournalsWidget(self.db)
             self.layout().addWidget(self.journalsTable)
@@ -118,8 +120,16 @@ class BtVCSGui(QtWidgets.QWidget):
         if self.db.publicLink:
             self.linkLabel.setText('Web: <a href="{0}">{0}</a>'.format(self.db.publicLink))
         self.linkLabel.setVisible(self.db.publicLink is not None)
-        self.dbLabel.setText('Database: <i>{}</i><br />r. {}, changed {}'
-                             .format(self.db.directory, *self.db.vcs.revision()))
+        if self.db.vcs.vcsType is not None:
+            self.dbLabel.setText('Database: <i>{}</i><br />r. {}, changed {}'
+                                 .format(self.db.directory, *self.db.vcs.revision()))
+            self.updateButton.setEnabled(True)
+            self.commitButton.setEnabled(True)
+        else:
+            self.dbLabel.setText('Database: <i>{}</i><br />Not under version control.'
+                                 .format(self.db.directory))
+            self.updateButton.setEnabled(False)
+            self.commitButton.setEnabled(False)
         self.setWindowTitle("BibTeX VCS: {}".format(self.db.name))
 
     def runAsync(self, labelText, finishedCall, fn, *args, **kwargs):

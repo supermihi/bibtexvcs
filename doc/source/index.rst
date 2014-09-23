@@ -2,13 +2,20 @@
 BibTeX VCS Documentation
 ########################
 
-Contents:
+User documentation:
 
 .. toctree::
-   
-   intro
-   apidoc
+   :maxdepth: 3
 
+   intro
+
+#################
+API Documentation
+#################
+
+.. toctree::
+
+    apidoc
 ##################
 Indices and tables
 ##################

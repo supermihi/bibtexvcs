@@ -6,9 +6,10 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
-# The parser definitions are partially based on "btpyparse" by Matthew Brett
-# 2010 Simplified BSD license.
-# https://github.com/matthew-brett/btpyparse
+""":mod:`bibtexvcs.parser` implements a parser for ``bibtex`` files. It is partially based on
+the `btpyparse package <https://github.com/matthew-brett/btpyparse>` by Matthew Brett,
+2010, Simplified BSD license.
+"""
 
 from __future__ import division, print_function, unicode_literals
 import re

@@ -6,30 +6,85 @@
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation
 
-from __future__ import division, print_function, unicode_literals
-from bibtexvcs.bibfile import MacroReference, MONTHS
-import sys, inspect
+"""
+The :mod:`checks` module defines a framework for defining and running automated *checks* on a
+bibtexvcs
+database.
 
-def performDatabaseCheck(database):
+Checks define certain constraints on the database related to consistency or other regulations.
+For instance, a default check ensures that every macro that is used in the BibTeX file is defined
+either in the bib file or in the list of journals.
+
+Custom checks can be added per database by creating a module ``checks.py`` in the main database
+directory. In that file, each check should be implemented as a function decorated with the
+:func:`databaseCheck` decorator that takes the check's description as an argument. The check
+function needs to act as a generator that yields :class:`CheckFailed` or :class:`CheckWarning`
+instances in case of failures or warnings. An example file might look like this (contains a check
+ensuring that every *journal* or *inproceedings* entry is a macro::
+
+    from bibtexvcs.checks import CheckFailed, CheckWarning, databaseCheck
+    from bibtexvcs.bibfile import MacroReference
+
+    @databaseCheck('only macros in journals')
+    def checkMacrosInJournals(database):
+        for entry in database.bibfile.values():
+            for field in ('inproceedings', 'journal'):
+                if field in entry and not isinstance(entry[field], MacroReference):
+                    yield CheckFailed('Entry "{}" has a non-macro {} field "{}"'
+                                      .format(entry.citekey, field, entry[field]))
+"""
+
+
+from __future__ import division, print_function, unicode_literals
+import os.path
+import sys
+import inspect
+import imp
+from bibtexvcs.bibfile import MacroReference, MONTHS
+
+
+def performDatabaseCheck(database, exclude=[]):
     me = sys.modules[__name__]
-    checks = [fun for fname, fun in inspect.getmembers(me, inspect.isfunction) if fname.startswith('check')]
+    checks = {fun.checkName: fun for fname, fun in inspect.getmembers(me, inspect.isfunction)
+                                 if hasattr(fun, 'checkName')}
+    if os.path.exists(database.checksPath):
+        localChecks = imp.load_source('checks', database.checksPath)
+        for fname, fun in inspect.getmembers(localChecks, inspect.isfunction):
+            if hasattr(fun, 'checkName'):
+                checks[fun.checkName] = fun
     errors = []
     warnings = []
-    for check in checks:
-        for ans in check(database):
-            if isinstance(ans, CheckFailed):
-                errors.append(ans)
-            else:
-                assert isinstance(ans, CheckWarning)
-                warnings.append(ans)
+
+    for checkName, check in checks.items():
+        if checkName not in exclude:
+            for ans in check(database):
+                if isinstance(ans, CheckFailed):
+                    errors.append(ans)
+                else:
+                    warnings.append(ans)
     return errors, warnings
+
 
 class CheckFailed(Exception):
     pass
 
+
 class CheckWarning(Warning):
     pass
 
+
+def databaseCheck(name):
+    """Function decorator for database checks.
+
+    :param name: a (unique) description text for the check.
+    """
+    def wrap(func):
+        func.checkName = name
+        return func
+    return wrap
+
+
+@databaseCheck('macro references')
 def checkMacros(database):
     """Check if all macros referenced in the database exist in its journals file."""
     bib = database.bibfile
@@ -46,6 +101,7 @@ def checkMacros(database):
                                   .format(f=field, m=value.name, e=entry.citekey))
 
 
+@databaseCheck('file links')
 def checkFileLinks(database):
     """Check that the files linked to in the database match those existing in the `documents`
     directory. Additionally, check that all documents are contained in the `documents` directory.
@@ -64,6 +120,7 @@ def checkFileLinks(database):
                           .format("\n".join(fsFilesSet - dbFilesSet)))
 
 
+@databaseCheck('ASCII filenames')
 def checkASCIIFilenames(database):
     """Check that all file names are ASCII. This is sensible because non-ASCII file names lead
     to problems with most VCS systems.
@@ -75,12 +132,9 @@ def checkASCIIFilenames(database):
             yield CheckFailed('The file name "{}" contains non-ASCII characters.'.format(filename))
 
 
-MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
-
-
+@databaseCheck('month macros')
 def checkMonthMacros(database):
     """Checks that the ``month`` field only contains (proper) macros."""
-
     for entry in database.bibfile.values():
         if 'month' not in entry:
             continue
@@ -110,6 +164,8 @@ def checkMonthMacros(database):
                     yield CheckFailed("Invalid month definition '{}' in '{}'"
                                       .format(month, entry.citekey))
 
+
+@databaseCheck('jabref file directory')
 def checkJabrefFileDirectory(database):
     identifier = 'jabref-meta: fileDirectory:'
     for comment in database.bibfile.comments:
@@ -118,6 +174,8 @@ def checkJabrefFileDirectory(database):
                 yield CheckFailed('JabRef fileDirectory field does not coincide with '
                                   'the configured one.')
 
+
+@databaseCheck('required BibTeX fields')
 def checkRequiredFields(database):
     """Checks that all required fields exist for each entry."""
     requiredFields = {
@@ -146,11 +204,15 @@ def checkRequiredFields(database):
                     yield CheckFailed('Entry "{}" of type "{}" requires field "{}"'
                                       .format(entry.citekey, entry.entrytype, req))
 
+
+@databaseCheck('entry owners')
 def checkOwnerExists(database):
     for entry in database.bibfile.values():
         if 'owner' not in entry:
             yield CheckFailed('Entry "{}" has no owner.'.format(entry.citekey))
 
+
+@databaseCheck('marked entries')
 def checkNoMarkedEntry(database):
     for entry in database.bibfile.values():
         if '__markedentry' in entry:

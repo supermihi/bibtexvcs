@@ -1,0 +1,8 @@
+[IEEE_ISIT]
+abbr = Proc. {IEEE} Int. Symp. Inform. Theory
+full = Proceedings of {IEEE} International Symposium on Information Theory
+
+[IEEE_J_IT]
+abbr = {IEEE} Trans. Inf. Theory
+full = {IEEE} Transactions on Information Theory
+

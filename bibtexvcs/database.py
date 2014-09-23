@@ -138,6 +138,11 @@ class Database:
         """Absolute path of the conf file."""
         return join(self.directory, BTVCSCONF)
 
+    @property
+    def checksPath(self):
+        """Absolute path of the (optional) checks file."""
+        return join(self.directory, 'checks.py')
+
     def referencedDocuments(self):
         docs = []
         for entry in self.bibfile.values():
