@@ -67,7 +67,7 @@ Repository (Database) Layout
 ============================
 A `BibTeX VCS` database consists of a repository of supported type (currently, this is only Mercurial_, but
 other VCS systems are easy to implement). The toplevel directory of the repository, henceforth called the
-`database directory`, must contain a file named ``bibtexvcs.conf`` which consists of "``key = value``"-type
+`database directory`, must contain a file named ``bibtexvcs.conf`` which consists of ``key = value``-type
 configuration options. The possible configuration options are:
 
 ``bibfile``
