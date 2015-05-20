@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# Copyright 2014 Michael Helmling
+# Copyright 2014-2015 Michael Helmling
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
@@ -18,7 +18,7 @@ from pyparsing import (Regex, Suppress, ZeroOrMore, OneOrMore, Group, Optional, 
                        SkipTo, CaselessLiteral, Dict, originalTextFor, delimitedList)
 
 from bibtexvcs.bibfile import (Entry, Comment, ImplicitComment, MacroReference,
-                                MacroDefinition, Name, Preamble)
+                               MacroDefinition, Name, Preamble)
 
 LCURLY = Suppress('{')
 RCURLY = Suppress('}')

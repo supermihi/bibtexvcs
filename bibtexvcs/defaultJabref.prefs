@@ -10,11 +10,14 @@
         <node name="jabref">
           <map>
             <entry key="defaultEncoding" value="UTF8"/>
+            <entry key="memoryStickMode" value="false"/>
+            <entry key="newline" value="&#13;&#10;"/>
             <entry key="openLastEdited" value="false"/>
             <entry key="saveInOriginalOrder" value="false"/>
             <entry key="saveInStandardOrder" value="true"/>
             <entry key="timeStampField" value="timestamp"/>
             <entry key="timeStampFormat" value="yyyy.MM.dd"/>
+            <entry key="updateTimestamp" value="true"/>
             <entry key="useOwner" value="true"/>
             <entry key="useTimeStamp" value="true"/>
             <entry key="workingDirectory" value="."/>

@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# Copyright 2014 Michael Helmling
+# Copyright 2014-2015 Michael Helmling
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
@@ -14,7 +14,7 @@ import configparser, io, os, subprocess
 from collections import OrderedDict
 from os.path import join, exists, relpath
 
-from pkg_resources import  resource_string, resource_filename, get_distribution
+from pkg_resources import resource_string, resource_filename, get_distribution
 
 from bibtexvcs.bibfile import BibFile, MacroReference
 from bibtexvcs.vcs import VCSInterface
@@ -83,6 +83,7 @@ class Database:
         self.reload()
 
     def reload(self):
+        """(Re-)loads the database from filesystem."""
         parser = configparser.ConfigParser()
         try:
             with io.open(self.configPath, encoding='UTF-8') as f:
@@ -112,7 +113,7 @@ class Database:
         self.name = config.get('name', "Untitled Bibtex Database")
         self.documents = config.get('documents', 'Documents')
 
-        self.makeJournalBibfiles()
+        self.makeJournalBibfiles()  # ensure these are up-to-date
 
         self.publicLink = config.get('publicLink', None)
         if not exists(self.documentsPath):
@@ -144,6 +145,7 @@ class Database:
         return join(self.directory, 'checks.py')
 
     def referencedDocuments(self):
+        """Returns a list of all filenames of documents referenced to in the bib file."""
         docs = []
         for entry in self.bibfile.values():
             fname = entry.filename()
@@ -161,6 +163,9 @@ class Database:
                     yield relpath(join(dirpath, file), self.documentsPath)
 
     def strval(self, value):
+        """Returns a string value for *value*. If *value* is a :class:`MacroReference`, substitutes
+        the value (if known).
+        """
         if isinstance(value, MacroReference):
             if value.name in self.bibfile.macroDefinitions:
                 return self.bibfile.macroDefinitions[value.name]

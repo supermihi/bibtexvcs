@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# Copyright 2014 Michael Helmling
+# Copyright 2014-2015 Michael Helmling
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
@@ -205,11 +205,6 @@ class MercurialInterface(VCSInterface):
     def commit(self, msg=None):
         if not self.localChanges():
             return False
-        if os.name != 'nt':
-            with io.open(self.db.bibfilePath, 'rt', encoding='UTF-8') as bibfile:
-                bib = bibfile.read()
-            with io.open(self.db.bibfilePath, 'wt', encoding='UTF-8', newline='\r\n') as bibfile:
-                bibfile.write(bib)
         hgOutput = self.callHg('status', '--deleted', '--no-status', self.db.documents)
         deletedDocs = hgOutput.decode(sys.getfilesystemencoding()).splitlines()
         if len(deletedDocs) > 0:

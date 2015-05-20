@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# Copyright 2014 Michael Helmling
+# Copyright 2014-2015 Michael Helmling
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
@@ -11,6 +11,7 @@ import argparse, io
 
 from bibtexvcs.database import Database
 from bibtexvcs import config
+
 
 def export(args):
     if args.template:
@@ -25,6 +26,7 @@ def export(args):
         with io.open(args.output, 'wt', encoding='UTF-8') as outfile:
             outfile.write(output)
 
+
 def check(args):
     from bibtexvcs import checks
     errors, warnings = checks.performDatabaseCheck(args.db)
@@ -32,6 +34,7 @@ def check(args):
         print('FAIL: {}'.format(err))
     for warn in warnings:
         print('WARN: {}'.format(warn))
+
 
 def script():
     parser = argparse.ArgumentParser()

@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# Copyright 2014 Michael Helmling
+# Copyright 2014-2015 Michael Helmling
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
@@ -14,6 +14,7 @@ import io
 
 Most of it is generic for BibTeX, i.e. not special to the literature package.
 """
+
 
 class BibFile(OrderedDict):
     """Object-oriented encapsulation of a BibTeX database.
@@ -195,7 +196,7 @@ class Entry(DatabaseElement, OrderedDict):
 
 
 class Comment(DatabaseElement):
-
+    """Represents a comment @COMMENT{<text>}"""
     def __init__(self, comment):
         self.comment = comment
 
@@ -208,6 +209,7 @@ class Comment(DatabaseElement):
 
 
 class ImplicitComment(Comment):
+    """Implicit comment in the bib file (everything before the first "@" symbol)."""
     pass
 
 
@@ -231,8 +233,10 @@ class Name:
         return self.last
 
     def lastName(self):
-        """Return a formatted version of the last name, including nobility and suffix (if appropriate)."""
-        return ' '.join((part for part in (self.nobility, self.last, self.suffix) if part is not None))
+        """Return a formatted version of the last name, including nobility and suffix
+        (if appropriate).
+        """
+        return ' '.join((part for part in (self.nobility, self.last, self.suffix) if part))
 
 
 MONTHS = dict((month[:3].lower(), MacroDefinition(month[:3].lower(), month)) for month in
