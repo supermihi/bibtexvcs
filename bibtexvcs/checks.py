@@ -181,7 +181,7 @@ def checkRequiredFields(database):
     requiredFields = {
         'article'      : ('author', 'title', 'journal', 'year'),
         'book'         : (('author', 'editor'), 'title', 'publisher', 'year'),
-        'booklet'      : ('title'),
+        'booklet'      : ('title',),
         'incollection' : ('author', 'title', 'booktitle', 'publisher', 'year'),
         'inproceedings': ('author', 'title', 'booktitle', 'year'),
         'mastersthesis': ('author', 'title', 'school', 'year'),
