@@ -7,8 +7,9 @@
 # published by the Free Software Foundation
 
 """:mod:`bibtexvcs.parser` implements a parser for ``bibtex`` files. It is partially based on
-the `btpyparse package <https://github.com/matthew-brett/btpyparse>` by Matthew Brett,
-2010, Simplified BSD license.
+the btpyparse_ package by Matthew Brett, 2010, Simplified BSD license.
+
+.. _btpyparse: https://github.com/matthew-brett/btpyparse
 """
 
 from __future__ import division, print_function, unicode_literals
@@ -97,8 +98,9 @@ def labelLiteralName(toks):
 # a name in "literal" style, like "Michael Helmling
 literalName = OneOrMore(namePart).setParseAction(labelLiteralName)
 
+
 def makeName(toks):
-    """Create a :class:`Name` object from the parse result of either a csName or a literalName."""
+    """Create a :class:`.Name` object from the parse result of either a csName or a literalName."""
     return Name(first=toks.get("firstname"),
                 nobility=toks.get("nobility"),
                 last=toks.get("lastname"),

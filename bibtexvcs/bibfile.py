@@ -65,7 +65,7 @@ class DatabaseElement:
     def fromParseResult(cls, toks):
         """Creates the database element from the result of the parser.
 
-        This method is meant to be used in L{parser} as parseAction on the corresponding element.
+        This method is meant to be used in :mod:`.parser` as parseAction on the corresponding element.
 
         @param toks: the token list
         """
@@ -77,14 +77,13 @@ class MacroDefinition(DatabaseElement):
 
     The members :attr:`key` and :attr:`value` hold the corresponding elements of the definition.
 
-    .. attribute:: key
-
+    Attributes
+    ----------
+    key : str
         The key by which the defined macro is accessed.
 
-    .. attribute:: value
-
+    value : str
         The substitution string of the macro definition.
-
     """
 
     def __init__(self, macro, definition):
