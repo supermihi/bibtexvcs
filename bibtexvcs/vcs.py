@@ -137,7 +137,11 @@ class MercurialInterface(VCSInterface):
 
     def __init__(self, *args, **kwargs):
         super(MercurialInterface, self).__init__(*args, **kwargs)
-        self.hasRemote = len(self.callHg("showconfig", "paths.default")) > 0
+        try:
+            self.hasRemote = len(self.callHg('showconfig', 'paths.default')) > 0
+        except subprocess.CalledProcessError:
+            # some hg versions appear to return exit status 1 if req'ed config noit set
+            self.hasRemote = False
         self.hgid = self.callHg('id', '-i')
 
     def callHg(self, *args):
@@ -178,6 +182,7 @@ class MercurialInterface(VCSInterface):
                 raise MergeConflict('There are unresolved merge conflicts in your repository.\n'
                                     'You have to fix them manually before proceeding to use this '
                                     'tool.')
+            print(output)
             raise e
         except OSError as e:
             raise VCSNotFoundError('Could not run "hg". Please install mercurial')
@@ -194,7 +199,8 @@ class MercurialInterface(VCSInterface):
     def update(self):
         if self.hasRemote:
             self.callHg('pull')
-        self.callHg('update')
+        # force internal merge algorithm with "-t merge" to prevent GUI tools opening
+        self.callHg('update', '-t', ':merge')
         newId = self.callHg('id', '-i')
         if newId != self.hgid:
             self.hgid = newId

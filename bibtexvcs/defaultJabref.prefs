@@ -10,6 +10,7 @@
         <node name="jabref">
           <map>
             <entry key="defaultEncoding" value="UTF8"/>
+            <entry key="enforceLegalBibtexKey" value="true"/>
             <entry key="memoryStickMode" value="false"/>
             <entry key="newline" value="&#13;&#10;"/>
             <entry key="openLastEdited" value="false"/>
