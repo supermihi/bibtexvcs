@@ -18,27 +18,36 @@ nullString = None
 try:
     from PyQt5 import QtWidgets, QtCore
     from PyQt5.QtCore import Qt
+    from PyQt5.QtGui import QIcon
     QT5 = True
 except ImportError:
     QT5 = False
     try:
         from PyQt4 import QtGui, QtCore
         from PyQt4.QtCore import Qt
+        from PyQt4.QtGui import QIcon
         QtWidgets = QtGui
         nullString = QtCore.QString()
     except ImportError:
         from PySide import QtGui, QtCore
         from PySide.QtCore import Qt
+        from PySide.QtGui import QIcon
         QtWidgets = QtGui
 
 from bibtexvcs.vcs import MergeConflict, typeMap, AuthError, VCSNotFoundError, VCSInterface
 from bibtexvcs.database import Database, Journal, JournalsFile, DatabaseFormatError
 from bibtexvcs import config
+from pkg_resources import resource_filename
 
 
 def standardIcon(widget, standardPixmap):
     """Helper function to generate a QIcon from a standardPixmap."""
     return widget.style().standardIcon(getattr(widget.style(), standardPixmap))
+
+
+def jabrefIcon():
+    pngPath = resource_filename(__name__, 'JabRef-icon-32.png')
+    return QIcon(pngPath)
 
 
 class BtVCSGui(QtWidgets.QWidget):
@@ -47,10 +56,10 @@ class BtVCSGui(QtWidgets.QWidget):
 
     def __init__(self):
         super(BtVCSGui, self).__init__()
-        self.setWindowTitle("BibTeX VCS")
+        self.setWindowTitle('BibTeX VCS')
 
         dbLayout = QtWidgets.QHBoxLayout()
-        self.dbLabel = QtWidgets.QLabel("Please open a database")
+        self.dbLabel = QtWidgets.QLabel('Please open a database')
         dbSelect = QtWidgets.QPushButton(standardIcon(self, 'SP_DialogOpenButton'), '&Open')
         dbSelect.setToolTip('Open existing local checkout of a BibTeX VCS database')
         dbSelect.clicked.connect(self.openDialog)
@@ -101,7 +110,7 @@ class BtVCSGui(QtWidgets.QWidget):
             self.updateButton = QtWidgets.QPushButton(standardIcon(self, 'SP_ArrowDown'),
                                                       '&1: Update')
             self.updateButton.clicked.connect(self.updateRepository)
-            jabrefButton = QtWidgets.QPushButton('&2: JabRef')
+            jabrefButton = QtWidgets.QPushButton(jabrefIcon(), '&2: JabRef')
             jabrefButton.clicked.connect(self.jabref)
             self.commitButton = QtWidgets.QPushButton(standardIcon(self, 'SP_ArrowUp'),
                                                       '&3: Commit')
@@ -320,7 +329,7 @@ class JournalsWidget(QtWidgets.QWidget):
         journalsLabel = QtWidgets.QLabel('<h3>Journals Management</h3>')
         self.searchEdit = QtWidgets.QLineEdit()
         self.searchEdit.textChanged.connect(self.search)
-        newJournalButton = QtWidgets.QPushButton('&Add Journal')
+        newJournalButton = QtWidgets.QPushButton(QIcon.fromTheme('list-add'), '&Add Journal')
         delJournalButton = QtWidgets.QPushButton(standardIcon(self, 'SP_TrashIcon'), '&Delete')
         delJournalButton.clicked.connect(self.deleteCurrent)
         newJournalButton.clicked.connect(self.addJournal)

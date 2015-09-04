@@ -1,2 +1,3 @@
 include bibtexvcs/defaultTemplate.html
 include bibtexvcs/defaultJabref.prefs
+include bibtexvcs/JabRef-icon-32.png
