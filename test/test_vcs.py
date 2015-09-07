@@ -18,15 +18,15 @@ class TestMercurial(unittest.TestCase):
 
     def testBasicVCS(self):
         with tmpDatabase() as db:
-            self.assertTrue(db.vcs.localChanges())
+            self.assertTrue(db.vcs.hasLocalChanges())
             db.vcs.commit()
-            self.assertFalse(db.vcs.localChanges())
+            self.assertFalse(db.vcs.hasLocalChanges())
             with open(join(db.documentsPath, "newTestDoc.pdf"), 'wt') as f:
                 f.write('bla')
             os.remove(join(db.documentsPath, 'emptyDoc.pdf'))
-            self.assertTrue(db.vcs.localChanges())
+            self.assertTrue(db.vcs.hasLocalChanges())
             db.vcs.commit()
-            self.assertFalse(db.vcs.localChanges())
+            self.assertFalse(db.vcs.hasLocalChanges())
 
     def testRemoteVCS(self):
         with tmpDatabase() as _db:
@@ -36,7 +36,7 @@ class TestMercurial(unittest.TestCase):
                     f.write('bla')
                 with open(join(db.documentsPath, 'new2.pdf'), 'wt') as f:
                     f.write('blub')
-                self.assertTrue(db.vcs.localChanges())
+                self.assertTrue(db.vcs.hasLocalChanges())
                 db.vcs.commit()
                 _db.vcs.callHg('update')
                 os.remove(join(_db.documentsPath, 'new2.pdf'))
@@ -47,7 +47,7 @@ class TestMercurial(unittest.TestCase):
                     f.write('x')
                 with open(_db.journalsPath, 'at') as f:
                     f.write('y')
-                self.assertTrue(_db.vcs.localChanges())
+                self.assertTrue(_db.vcs.hasLocalChanges())
                 _db.vcs.commit()
                 self.assertRaises(vcs.MergeConflict, db.vcs.update)
 

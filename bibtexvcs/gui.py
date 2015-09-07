@@ -13,7 +13,8 @@ import traceback
 from contextlib import contextmanager
 
 
-# we support PyQt5, PyQt4 and PySide
+# we support PyQt5, PyQt4 and PySide - this import hell allows the rest of the module to be
+# (almost) binding-agnostic
 nullString = None
 try:
     from PyQt5 import QtWidgets, QtCore
@@ -34,7 +35,7 @@ except ImportError:
         from PySide.QtGui import QIcon
         QtWidgets = QtGui
 
-from bibtexvcs.vcs import MergeConflict, typeMap, AuthError, VCSNotFoundError, VCSInterface
+from bibtexvcs.vcs import MergeConflict, AuthError, VCSNotFoundError, VCSInterface
 from bibtexvcs.database import Database, Journal, JournalsFile, DatabaseFormatError
 from bibtexvcs import config
 from pkg_resources import resource_filename
@@ -46,6 +47,7 @@ def standardIcon(widget, standardPixmap):
 
 
 def jabrefIcon():
+    """Return the JabRef icon which is bundled in the bibtexvcs package."""
     pngPath = resource_filename(__name__, 'JabRef-icon-32.png')
     return QIcon(pngPath)
 
@@ -57,109 +59,147 @@ class BtVCSGui(QtWidgets.QWidget):
     def __init__(self):
         super(BtVCSGui, self).__init__()
         self.setWindowTitle('BibTeX VCS')
+        self.guiIsComplete = False
+
+        self._initGUI()
+        self._initFutures()
+
+        self._database = None
+        self.show()
+        self._runAsync('Opening previous database ...',
+                      self.loadDefaultDatabase,
+                      Database.getDefault)
+
+    def _initGUI(self):
+        """Initializes GUI components before opening any database.
+
+        After execution of this method, the GUI is in "reduced" state, showing only controls for
+        cloning/opening a database. The full controls will be generated as soon as a database is
+        loaded.
+        """
+        assert not self.guiIsComplete
+        self.dbLabel = QtWidgets.QLabel('Please open a database')
+        dbSelectionButton = QtWidgets.QPushButton(standardIcon(self, 'SP_DialogOpenButton'), '&Open')
+        dbSelectionButton.setToolTip('Open existing local checkout of a BibTeX VCS database')
+        dbSelectionButton.clicked.connect(self.showOpenDatabaseDialog)
+        dbCloneButton = QtWidgets.QPushButton(standardIcon(self, 'SP_DriveNetIcon'), '&Clone')
+        dbCloneButton.setToolTip('Clone a BibTeX VCS database from a remote repository')
+        dbCloneButton.clicked.connect(self.cloneDialog)
 
         dbLayout = QtWidgets.QHBoxLayout()
-        self.dbLabel = QtWidgets.QLabel('Please open a database')
-        dbSelect = QtWidgets.QPushButton(standardIcon(self, 'SP_DialogOpenButton'), '&Open')
-        dbSelect.setToolTip('Open existing local checkout of a BibTeX VCS database')
-        dbSelect.clicked.connect(self.openDialog)
-        dbClone = QtWidgets.QPushButton(standardIcon(self, 'SP_DriveNetIcon'), '&Clone')
-        dbClone.setToolTip('Clone a BibTeX VCS database from a remote repository')
-        dbClone.clicked.connect(self.cloneDialog)
-
         dbLayout.addWidget(self.dbLabel)
         dbLayout.addStretch()
-        dbLayout.addWidget(dbSelect)
-        dbLayout.addWidget(dbClone)
-        layout = QtWidgets.QVBoxLayout()
-        layout.addLayout(dbLayout)
-        self.linkLabel = QtWidgets.QLabel('')
-        self.linkLabel.setOpenExternalLinks(True)
-        layout.addWidget(self.linkLabel)
-        self.setLayout(layout)
-        self.guiComplete = False
+        dbLayout.addWidget(dbSelectionButton)
+        dbLayout.addWidget(dbCloneButton)
 
-        # helpers for asynchronous function calls (see runAsync())
-        self.executor = concurrent.futures.ThreadPoolExecutor(1)
+        mainLayout = QtWidgets.QVBoxLayout()
+        mainLayout.addLayout(dbLayout)
+        self.publicLinkLabel = QtWidgets.QLabel('')
+        self.publicLinkLabel.setOpenExternalLinks(True)
+        mainLayout.addWidget(self.publicLinkLabel)
+        self.setLayout(mainLayout)
+        self.guiIsComplete = False
+
+    def _ensureGUIIsComplete(self):
+        if self.guiIsComplete:
+            return
+        buttonLayout = QtWidgets.QHBoxLayout()
+        self.updateButton = QtWidgets.QPushButton(standardIcon(self, 'SP_ArrowDown'),
+                                                  '&1: Update')
+        self.updateButton.clicked.connect(self.updateRepository)
+        jabrefButton = QtWidgets.QPushButton(jabrefIcon(), '&2: JabRef')
+        jabrefButton.clicked.connect(self.jabref)
+        self.commitButton = QtWidgets.QPushButton(standardIcon(self, 'SP_ArrowUp'),
+                                                  '&3: Commit')
+        self.commitButton.clicked.connect(self.runChecks)
+        for button in self.updateButton, jabrefButton, self.commitButton:
+            buttonLayout.addWidget(button)
+        self.journalsTable = JournalsWidget(self._database)
+        journalExpandButton = QtWidgets.QPushButton(standardIcon(self, 'SP_ToolBarVerticalExtensionButton'),
+                                                    'Show Journals ...')
+        journalExpandButton.setCheckable(True)
+        self.layout().addWidget(journalExpandButton)
+        journalExpandButton.toggled.connect(self.journalsTable.setVisible)
+        self.layout().addWidget(self.journalsTable)
+        self.journalsTable.hide()
+        self.layout().addLayout(buttonLayout)
+        self.guiIsComplete = True
+
+    def _initFutures(self):
+        """Initializes helpers for asynchronous function calls (see :func:`runAsync`).
+        """
+        self.futureExecutor = concurrent.futures.ThreadPoolExecutor(1)
         self.futureTimer = QtCore.QTimer(self)
         self.futureTimer.setInterval(20)
         self.futureTimer.timeout.connect(self._updateFuture)
-        self.prog = QtWidgets.QProgressDialog(self)
-        self.prog.setRange(0, 0)
-        self.prog.setCancelButtonText(nullString)
-        self.prog.setWindowModality(Qt.WindowModal)
+        self.progressDialog = QtWidgets.QProgressDialog(self)
+        self.progressDialog.setRange(0, 0)
+        self.progressDialog.setCancelButtonText(nullString)
+        self.progressDialog.setWindowModality(Qt.WindowModal)
 
-        self.db = None
-        self.show()
-        self.runAsync("Opening previous database ...", self.loadDefault, config.getDefaultDatabase)
-
-    def loadDefault(self):
+    def loadDefaultDatabase(self):
         """Opens the default database as defined in :mod:`bibtexvcs`'s config file. If no default
         database is configured, nothing happens.
         """
         with self.catchExceptions():
-            lastDB = self.future.result()
-            if lastDB:
-                self.setDB(lastDB)
+            defaultDatabase = self.future.result()
+            if defaultDatabase:
+                self.setDatabase(defaultDatabase)
 
-    def setDB(self, db):
-        """Set the current database to `db`."""
-        self.db = db
-        if not self.guiComplete:
-            buttonLayout = QtWidgets.QHBoxLayout()
-            self.updateButton = QtWidgets.QPushButton(standardIcon(self, 'SP_ArrowDown'),
-                                                      '&1: Update')
-            self.updateButton.clicked.connect(self.updateRepository)
-            jabrefButton = QtWidgets.QPushButton(jabrefIcon(), '&2: JabRef')
-            jabrefButton.clicked.connect(self.jabref)
-            self.commitButton = QtWidgets.QPushButton(standardIcon(self, 'SP_ArrowUp'),
-                                                      '&3: Commit')
-            self.commitButton.clicked.connect(self.runChecks)
-            for button in self.updateButton, jabrefButton, self.commitButton:
-                buttonLayout.addWidget(button)
-            self.journalsTable = JournalsWidget(self.db)
-            self.layout().addWidget(self.journalsTable)
-            self.layout().addLayout(buttonLayout)
-            self.guiComplete = True
+    def setDatabase(self, database):
+        """Set the current database to `database`.
+
+        On the first time this method is called after window creation, the GUI is completed with the
+        controls for journal management etc.
+        """
+        self._database = database
+        self._ensureGUIIsComplete()
         self.reload()
         self.updateRepository()
 
     def reload(self):
-        self.journalsTable.setDB(self.db)
-        if self.db.publicLink:
-            self.linkLabel.setText('Web: <a href="{0}">{0}</a>'.format(self.db.publicLink))
-        self.linkLabel.setVisible(self.db.publicLink is not None)
-        if self.db.vcs.vcsType is not None:
+        """Reload GUI components after the database has been changed or updated.
+
+        Resets database controls, journals table, window title, etc.
+        """
+        self.journalsTable.setDB(self._database)
+        if self._database.publicLink:
+            self.publicLinkLabel.setText('Web: <a href="{0}">{0}</a>'.format(self._database.publicLink))
+        self.publicLinkLabel.setVisible(self._database.publicLink is not None)
+        if self._database.vcs is not None:
             self.dbLabel.setText('Database: <i>{}</i><br />r. {}, changed {}'
-                                 .format(self.db.directory, *self.db.vcs.revision()))
+                                 .format(self._database.directory, *self._database.vcs.revision()))
             self.updateButton.setEnabled(True)
             self.commitButton.setEnabled(True)
         else:
             self.dbLabel.setText('Database: <i>{}</i><br />Not under version control.'
-                                 .format(self.db.directory))
+                                 .format(self._database.directory))
             self.updateButton.setEnabled(False)
             self.commitButton.setEnabled(False)
-        self.setWindowTitle("BibTeX VCS: {}".format(self.db.name))
+        self.setWindowTitle("BibTeX VCS: {}".format(self._database.name))
 
-    def runAsync(self, labelText, finishedCall, fn, *args, **kwargs):
-        """Helper function for asynchronous calls during which a progress dialog is shown. The
-        progress dialog will be labelled by `labelText`.
+    def _runAsync(self, labelText, finishedCall, fn, *args, **kwargs):
+        """Helper function for asynchronous calls during which a progress dialog labelled
+        `labelText` is shown.
 
-        `finishedCall` is an optional callable that will be called after `fn` has finished running.
-
-        `fn` is the callable to be run asynchronously. Additional arguments are passed to this
-        function.
+        Parameters
+        ----------
+        finishedCall : callable
+            Function that will be called after `fn` has finished running. May be `None`.
+        fn : callable
+            The function to be run asynchronously. Additional positional and keyword arguments are
+            passed to `fn`.
         """
-        self.prog.setLabelText(labelText)
-        self.prog.show()
+        self.progressDialog.setLabelText(labelText)
+        self.progressDialog.show()
         self.finishedCall = finishedCall
-        self.future = self.executor.submit(fn, *args, **kwargs)
+        self.future = self.futureExecutor.submit(fn, *args, **kwargs)
         self.futureTimer.start()
 
     def _updateFuture(self):
         if self.future.done():
             self.futureTimer.stop()
-            self.prog.close()
+            self.progressDialog.close()
             if self.finishedCall:
                 self.finishedCall()
 
@@ -172,6 +212,7 @@ class BtVCSGui(QtWidgets.QWidget):
 
         `onAuthEntered` is an optional callable. If it is provided and an :class:`AuthError` is
         caught, the following happens:
+
         - A :class:`LoginDialog` is shown to ask the user for a login,
         - if the dialog is canceled, the :class:`AuthError` is re-raised
         - otherwise, the function `onAuthEntered` is called.
@@ -189,10 +230,11 @@ class BtVCSGui(QtWidgets.QWidget):
         except AuthError as a:
             if onAuthEntered is not None:
                 ans = LoginDialog.getLogin(self, str(a))
-                if ans:
-                    self.db.vcs.username, self.db.vcs.password, store = ans
+                if ans is not None:
+                    self._database.vcs.setLogin(ans['login'])
+                    store = ans['storeLogin']
                     if store:
-                        config.setAuthInformation(self.db)
+                        self._database.vcs.storeLogin()
                     onAuthEntered()
                     return
             M.critical(self, "Authorization Required", str(a))
@@ -201,45 +243,47 @@ class BtVCSGui(QtWidgets.QWidget):
         except Exception as e:
             M.critical(self, 'Unhandled {}'.format(type(e)), traceback.format_exc())
 
-    def openDialog(self):
-        ans = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Database")
+    def showOpenDatabaseDialog(self):
+        """Opens a dialog to select a database from a local directory, and then loads that database.
+        """
+        ans = QtWidgets.QFileDialog.getExistingDirectory(self, 'Select Database Directory')
         if ans:
             with self.catchExceptions():
-                db = Database(ans)
-                self.setDB(db)
+                database = Database(ans)
+                self.setDatabase(database)
 
     def cloneDialog(self):
-        self.cloneDialog = CloneDialog(self)
-        if self.cloneDialog.exec_() == self.cloneDialog.Accepted:
-            self.login = dict()
-            self.storeLogin = False
-            self.cloneDB_init()
+        """Opens a dialog to select a source for cloning a database, and then loads that database.
+        """
+        cloneDialog = CloneDialog(self)
+        if cloneDialog.exec_() == cloneDialog.Accepted:
+            self._cloneDB_init(cloneDialog.url(), cloneDialog.target(), cloneDialog.vcsType(),
+                               cloneDialog.login())
 
-    def cloneDB_init(self):
-        self.runAsync("Cloning database ... ",
-                      self.cloneDB_handle,
-                      VCSInterface.getClonedDatabase,
-                      self.cloneDialog.urlEdit.text(),
-                      self.cloneDialog.targetEdit.text(),
-                      self.cloneDialog.vcsTypeChooser.currentText(),
-                      **self.login)
+    def _cloneDB_init(self, url, target, vcsType, *args, **kwargs):
+        """Initialize asynchronous cloning of a (remote) database.
+        """
+        self._cloneURL = url
+        self._cloneTarget = target
+        self._cloneVCS = vcsType
+        self._runAsync('Cloning database ... ', self._cloneDB_handle,
+                       VCSInterface.getClonedDatabase, url, target, vcsType, *args, **kwargs)
 
-    def cloneDB_handle(self):
+    def _cloneDB_handle(self):
         with self.catchExceptions():
             try:
-                self.setDB(self.future.result())
-                if self.storeLogin:
-                    config.setAuthInformation(self.db)
+                self.setDatabase(self.future.result())
             except AuthError as e:
                 ans = LoginDialog.getLogin(self, str(e))
                 if ans:
-                    self.login['username'], self.login['password'], self.storeLogin = ans
-                    self.cloneDB_init()
+                    login, storeLogin = ans
+                    self._cloneDB_init(self._cloneURL, self._cloneTarget, self._cloneVCS,
+                                       login, storeLogin=storeLogin)
                 else:
                     raise e
 
     def updateRepository(self):
-        self.runAsync("Updating repository ...", self.update_handle, self.db.vcs.update)
+        self._runAsync("Updating repository ...", self.update_handle, self._database.vcs.update)
 
     def update_handle(self):
         with self.catchExceptions(onAuthEntered=self.updateRepository):
@@ -251,17 +295,17 @@ class BtVCSGui(QtWidgets.QWidget):
 
     def jabref(self):
         try:
-            self.db.runJabref()
+            self._database.runJabref()
         except FileNotFoundError as e:
             QtWidgets.QMessageBox.critical(self, 'Could not start JabRef', str(e))
 
     def runChecks(self):
-        self.runAsync("Performing database checks ...", self.runChecks_handle, self.runChecks_init)
+        self._runAsync("Performing database checks ...", self.runChecks_handle, self.runChecks_init)
 
     def runChecks_init(self):
         from bibtexvcs import checks
-        self.db.reload()
-        return checks.performDatabaseCheck(self.db)
+        self._database.reload()
+        return checks.performDatabaseCheck(self._database)
 
     def runChecks_handle(self):
         self.reload()
@@ -285,7 +329,7 @@ class BtVCSGui(QtWidgets.QWidget):
             self.commit_init()
 
     def commit_init(self):
-        self.runAsync("Committing repository ...", self.commit_handle, self.db.vcs.commit)
+        self._runAsync("Committing repository ...", self.commit_handle, self._database.vcs.commit)
 
     def commit_handle(self):
         with self.catchExceptions(onAuthEntered=self.commit_init):
@@ -296,19 +340,19 @@ class BtVCSGui(QtWidgets.QWidget):
                 self.reload()
 
     def closeEvent(self, event):
-        if self.db and self.db.vcs.localChanges():
+        if self._database and self._database.vcs and self._database.vcs.hasLocalChanges():
             ans = QtWidgets.QMessageBox.question(self, "Local changes present",
                     "Database was modified locally. Are you sure you want to quit "
                     "without committing the changes?",
                     QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Yes)
             if ans == QtWidgets.QMessageBox.Yes:
-                config.setDefaultDatabase(self.db)
+                self._database.setDefault()
                 event.accept()
             else:
                 event.ignore()
         else:
-            if self.db:
-                config.setDefaultDatabase(self.db)
+            if self._database:
+                self._database.setDefault()
             event.accept()
 
 
@@ -326,13 +370,24 @@ class JournalsWidget(QtWidgets.QWidget):
 
         getattr(self.table.verticalHeader(), fName)(QtWidgets.QHeaderView.ResizeToContents)
         layout = QtWidgets.QVBoxLayout()
-        journalsLabel = QtWidgets.QLabel('<h3>Journals Management</h3>')
+        journalsLabel = QtWidgets.QLabel('Search:')
         self.searchEdit = QtWidgets.QLineEdit()
         self.searchEdit.textChanged.connect(self.search)
         newJournalButton = QtWidgets.QPushButton(QIcon.fromTheme('list-add'), '&Add Journal')
         delJournalButton = QtWidgets.QPushButton(standardIcon(self, 'SP_TrashIcon'), '&Delete')
         delJournalButton.clicked.connect(self.deleteCurrent)
         newJournalButton.clicked.connect(self.addJournal)
+        explLabel = QtWidgets.QLabel('For easy switching between full and abbreviated journal names'
+                                     ' in your documents, you should introduce journal macros for '
+                                     'every journal used instead of hard-coding the journal name '
+                                     'into the bib file. Use the table below to manage those macros'
+                                     '. Add either <code>{}</code> or <code>{}</code> as bibliography '
+                                     'resource to have the corresponding style in jour TeX doc.'
+                                     .format(self.db.abbrJournalsName,
+                                             self.db.fullJournalsName))
+        explLabel.setWordWrap(True)
+        explLabel.setTextFormat(Qt.RichText)
+        layout.addWidget(explLabel)
 
         buttonLayout = QtWidgets.QHBoxLayout()
         buttonLayout.addWidget(journalsLabel)
@@ -424,7 +479,7 @@ class CloneDialog(QtWidgets.QDialog):
         layout.addWidget(QtWidgets.QLabel("URL:"), 0, 0)
         layout.addWidget(self.urlEdit, 0, 1)
         self.vcsTypeChooser = QtWidgets.QComboBox()
-        self.vcsTypeChooser.addItems([t for t in typeMap if t is not None])
+        self.vcsTypeChooser.addItems(VCSInterface.vcsTypeNames())
         layout.addWidget(self.vcsTypeChooser, 0, 2)
         layout.addWidget(QtWidgets.QLabel('Target:'), 1, 0)
         self.targetEdit = QtWidgets.QLineEdit()
@@ -481,7 +536,9 @@ class LoginDialog(QtWidgets.QDialog):
     def getLogin(parent=None, message=None):
         dialog = LoginDialog(parent=parent, message=message)
         if dialog.exec_() == dialog.Accepted:
-            return dialog.userEdit.text(), dialog.passEdit.text(), dialog.storeBox.isChecked()
+            return dict(username=dialog.userEdit.text(),
+                        password=dialog.passEdit.text(),
+                        storeLogin=dialog.storeBox.isChecked())
         return None
 
 

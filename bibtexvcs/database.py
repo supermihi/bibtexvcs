@@ -32,54 +32,43 @@ class DatabaseFormatError(Exception):
 class Database:
     """Represents a complete literature database.
 
-    :param directory: Base path of the database.
-    :type directory: str
-
     The database configuration is read from the file `bbibtexvcs.conf` and from the layout of the
     directory that file resides in.
 
-    .. attribute:: directory
+    Parameters
+    ----------
+    directory : str
+        Base path of the database.
 
+    Attributes
+    ----------
+    directory : str
         Absolute path of the root directory of the literature database.
-
-    .. attribute:: bibfileName
-
+    bibfileName : str
         Name of the main bibtex database file.
-
-    .. attribute:: bibfile
-
+    bibfile : :class:`BibFile`
         :class:`BibFile` object parsed from the bibtex file.
-
-    .. attribute:: journalsName
-
+    journalsName : str
         Name of the journals file.
-
-    .. attribute:: journals
-
+    journals : :class:`JournalsFile`
         :class:`JournalsFile` object read from the journals file.
-
-    .. attribute:: name
-
+    name : str
         Name of the database.
-
-    .. attribute:: documents
-
+    documents : str
         Name of the documents directory (relative to :attr:`directory`).
-
-    .. attribute:: vcsType
-
-        Type of the used VCS system. One of: ``"git"``, ``"mercurial"``, or ``None``
+    vcsType : ("git", "mercurial", "local")
+        Type of the used VCS system.
     """
 
-    def __init__(self, directory):
+    def __init__(self, directory, vcs=None):
         self.directory = directory
         if exists(join(self.directory, '.git')):
             self.vcsType = 'git'
         elif exists(join(self.directory, '.hg')):
             self.vcsType = 'mercurial'
         else:
-            self.vcsType = None
-        self._vcs = None
+            self.vcsType = 'local'
+        self._vcs = vcs
         self.reload()
 
     def reload(self):
@@ -118,6 +107,19 @@ class Database:
         self.publicLink = config.get('publicLink', None)
         if not exists(self.documentsPath):
             os.mkdir(self.documentsPath)
+
+    def setDefault(self):
+        """Set this database as default in config."""
+        from bibtexvcs import config
+        config.setDefaultDatabase(self)
+
+    @classmethod
+    def getDefault(cls):
+        from bibtexvcs import config
+        directory = config.getDefaultDirectory()
+        if directory is None:
+            raise RuntimeError('No default database configured')
+        return cls(directory)
 
     @property
     def journalsPath(self):
@@ -173,14 +175,25 @@ class Database:
                 return self.journals[value.name].full
         return str(value)
 
+    @property
+    def abbrJournalsName(self):
+        """Name of the abbreviated journals string file."""
+        return self.bibfileName[:-4] + '_abbr.bib'
+
+    @property
+    def fullJournalsName(self):
+        """Name of the full journals string file."""
+        return self.bibfileName[:-4] + '_full.bib'
+
     def makeJournalBibfiles(self):
         """Creates or updates the files containing journal macro definitions in full and
         abbreviated form, respectively.
         """
-        base = self.bibfilePath[:-4]
-        if not exists(base + '_abbr.bib') or not exists(base + '_full.bib') or \
-                os.path.getmtime(self.journalsPath) > os.path.getmtime(base + '_abbr.bib'):
-            self.journals.writeBibfiles(base)
+        abbr, full = [join(self.directory, name) for name in
+                      (self.abbrJournalsName, self.fullJournalsName)]
+        if not exists(full) or not exists(abbr) or \
+                        os.path.getmtime(self.journalsPath) > os.path.getmtime(abbr):
+            self.journals.writeBibfiles(self.bibfileName[:-4])
 
     def runJabref(self):
         """Tries to open this database's ``.bib`` file with `JabRef`_. Will do the following:

@@ -7,12 +7,17 @@
 # published by the Free Software Foundation
 
 from __future__ import division, print_function, unicode_literals
-import io
-import os
-import subprocess
-import sys
+import os, subprocess, sys
 
 from bibtexvcs import config
+
+
+class Login:
+    """Data class representing login information for a remote repository.
+    """
+    def __init__(self, username=None, password=None):
+        self.username = username
+        self.password = password
 
 
 class MergeConflict(Exception):
@@ -28,56 +33,43 @@ class AuthError(Exception):
 class VCSNotFoundError(Exception):
     """Raised when the necessary VCS binary (e.g. "hg") is not installed."""
 
-typeMap = {} # maps name of a VCS (e.g. 'mercurial') to class instance
 
-
-class VCSMeta(type):
-    def __init__(cls, name, base, namespace):
-        super(VCSMeta, cls).__init__(name, base, namespace)
-        if hasattr(cls, 'vcsType'):
-            typeMap[cls.vcsType] = cls
-
-VCSBase = VCSMeta('VCSBase' if sys.version_info.major >= 3 else b'VCSBase', (object,), {})
-
-
-class VCSInterface(VCSBase):
+class VCSInterface:
     """Interface to the version control system (VCS) of a :mod:`bibtexvcs` database.
-
-    .. attribute:: username
-
-        Optional username for authentication.
-    .. attribute:: password
-
-        Optional password for authentication.
     """
 
-    def __init__(self, db):
-        self.db = db
-        ans = config.getAuthInformation(db)
-        if ans:
-            self.username, self.password = ans
-        else:
-            self.username = self.password = None
+    __typeMap = {}
+
+    def __init__(self, database):
+        self.database = database
+        storedLogin = Login(*config.getLogin(database))
+        self.login = storedLogin
 
     @property
     def root(self):
-        return self.db.directory
+        """Returns the root directory of this repository.
+        """
+        return self.database.directory
+
+    def storeLogin(self, login):
+        """Permanently store login information for this repository.
+        """
+        config.storeLogin(self.database, self.login.username, self.login.password)
 
     def add(self, path):
         """Adds a file or directory to the repository.
-
-        :param path: The path (relative to the vcs root).
-        :type path: str
         """
 
-    def localChanges(self):
+    def hasLocalChanges(self):
         """Determines whether any local changes have been made to the repository.
+        Returns
+        -------
+        bool
+            Return value is ``True`` iff one of the following requirements are met:
 
-        Returns ``True`` if one of the following requirements are met:
-
-        - any versioned file has been modified,
-        - any versioned file in the documents folder has been deleted, or
-        - any unversioned file has been placed in the documents folder.
+            - any versioned file has been modified,
+            - any versioned file in the documents folder has been deleted, or
+            - any unversioned file has been placed in the documents folder.
         """
         raise NotImplementedError()
 
@@ -85,17 +77,24 @@ class VCSInterface(VCSBase):
         """Checks if there are updates in the remote repository. If so, tries to merge
         them and reloads the database.
 
-        :return: ``True`` if something was update, ``False`` otherwise.
-        :raises: :class:`MergeConflict` if a conflict is introduced by merging."""
+        Returns
+        -------
+        bool
+            Flag indicating if something was updated or not.
+        Raises
+        ------
+        MergeConflict
+            If update results in a merge that cannot be handled automatically.
+        """
         raise NotImplementedError()
 
-    def commit(self, msg=None):
-        """Commit local changes and push to remote, if exists.
+    def commit(self, commitMessage=None):
+        """Commit local changes and push to remote, if remote is configured.
 
-        :param msg: Commit message.
-        :type msg:  str
-        :rtype: bool
-        :return: Indicate whether there were any actual changes.
+        Returns
+        ----------
+        bool
+            Indicator being ``True`` iff there actually were any changes.
         """
         raise NotImplementedError()
 
@@ -103,36 +102,79 @@ class VCSInterface(VCSBase):
         """Returns a tuple containing the current revision and its date."""
         raise NotImplementedError()
 
+
     @staticmethod
-    def get(db):
+    def vcsTypeNames():
+        """Returns the names of all registered VCS types."""
+        return VCSInterface.__typeMap.keys()
+
+    @staticmethod
+    def registerVCSType(vcsTypeName, vcsTypeClass):
+        """Register a new VCS type."""
+        VCSInterface.__typeMap[vcsTypeName] = vcsTypeClass
+
+    @staticmethod
+    def getImplementation(vcsTypeName):
+        if vcsTypeName == 'local':
+            return None
         try:
-            return typeMap[db.vcsType](db)
+            return VCSInterface.__typeMap[vcsTypeName]
         except KeyError:
-            raise KeyError("No VCS type '{}' is known".format(db.vcsType))
+            raise KeyError('No VCS implementation of type "{}" available'.format(vcsTypeName))
+
+    @staticmethod
+    def get(database):
+        return VCSInterface.getImplementation(database.vcsType)(database)
 
     @classmethod
-    def clone(cls, url, target):
+    def clone(cls, url, target, login=None):
         """Clones a remote repository.
 
-        :param url: The remote repository URL.
-        :type url: str
-        :param target: The target directory.
-        :type target: str
+        Parameters
+        ----------
+        url : str
+            The remote repository URL.
+        target : str
+            The local target directory.
+        login : Login
+            Login information.
         """
         raise NotImplementedError()
 
     @staticmethod
-    def getClonedDatabase(url, target, vcsType, username=None, password=None):
-        vcsCls = typeMap[vcsType]
-        vcsCls.clone(url, target, username=username, password=password)
+    def getClonedDatabase(url, target, vcsType, login=None, storeLogin=False):
+        """Clone and return a database from a remote location specified by `url`.
+
+        Parameters
+        ----------
+        url : str
+            Source URL of the repository.
+        target : str
+            Local target directory.
+        vcsType
+            VCS system to use.
+        login : Login
+            Login information (optional).
+        storeLogin : bool (optional)
+            Store login on successful authentication.
+        """
+        vcsCls = VCSInterface.getImplementation(vcsType)
+        if login is None:
+            login = Login()
+        vcsCls.clone(url, target, login)
         from bibtexvcs.database import Database
-        return Database(target)
+        database = Database(target)
+        # copy login information
+        database.vcs.login = login
+        if storeLogin:
+            database.vcs.storeLogin()
+        return database
 
 
 class MercurialInterface(VCSInterface):
     """Interface to the `Mercurial <http://mercurial.selenic.com>`_ version control system.
     """
-    vcsType = 'mercurial'
+
     cmdline = ['hg', '--noninteractive', '--config', 'auth.x.prefix=*']
 
     def __init__(self, *args, **kwargs):
@@ -147,21 +189,20 @@ class MercurialInterface(VCSInterface):
     def callHg(self, *args):
         """Calls the ``hg`` script in the database directory with the given arguments.
         """
-        return MercurialInterface._callHg(*args, username=self.username, password=self.password,
-                                          cwd=self.root)
+        return MercurialInterface._callHg(*args, login=self.login, cwd=self.root)
 
     @classmethod
     def _callHg(cls, *args, **kwargs):
         cmdline = cls.cmdline[:]
         kwargs = kwargs.copy()
-        if kwargs.get('username'):
-            cmdline += ['--config', 'auth.x.username={}'.format(kwargs['username'])]
-        if kwargs.get('password'):
-            cmdline += ['--config', 'auth.x.password={}'.format(kwargs['password'])]
-        if 'username' in kwargs:
-            del kwargs['username']
-        if 'password' in kwargs:
-            del kwargs['password']
+        if kwargs.get('login'):
+            login = kwargs['login']
+            if login.username:
+                cmdline += ['--config', 'auth.x.username={}'.format(login.username)]
+            if login.password:
+                cmdline += ['--config', 'auth.x.password={}'.format(login.password)]
+        if 'login' in kwargs:
+            del kwargs['login']
         env = os.environ.copy()
         env['LANG'] = 'C'
         env['LANGUAGE'] = 'C'  # on Ubuntu 12.04, LANG=C does not convince hg to use english output
@@ -190,11 +231,11 @@ class MercurialInterface(VCSInterface):
     def add(self, path):
         self.callHg('add', path)
 
-    def localChanges(self):
+    def hasLocalChanges(self):
         if len(self.callHg('status', '--modified', '--added')) > 0:
             return True
         # by this we ignore unversioned files in the base folder
-        return len(self.callHg('status', '--deleted', '--unknown', self.db.documents)) > 0
+        return len(self.callHg('status', '--deleted', '--unknown', self.database.documents)) > 0
 
     def update(self):
         if self.hasRemote:
@@ -204,26 +245,26 @@ class MercurialInterface(VCSInterface):
         newId = self.callHg('id', '-i')
         if newId != self.hgid:
             self.hgid = newId
-            self.db.reload()
+            self.database.reload()
             return True
         return False
 
-    def commit(self, msg=None):
-        if not self.localChanges():
+    def commit(self, commitMessage=None):
+        if not self.hasLocalChanges():
             return False
-        hgOutput = self.callHg('status', '--deleted', '--no-status', self.db.documents)
+        hgOutput = self.callHg('status', '--deleted', '--no-status', self.database.documents)
         deletedDocs = hgOutput.decode(sys.getfilesystemencoding()).splitlines()
         if len(deletedDocs) > 0:
             self.callHg('remove', *deletedDocs)
-        hgOutput = self.callHg('status', '--unknown', '--no-status', self.db.documents)
+        hgOutput = self.callHg('status', '--unknown', '--no-status', self.database.documents)
         newDocs = hgOutput.decode().splitlines()
         if len(newDocs) > 0:
             self.callHg('add', *newDocs)
         # TODO: sophisticated analysis of diff to current head
-        self.callHg('commit', '--message', msg or 'Auto-Commit by BibTeX VCS')
+        self.callHg('commit', '--message', commitMessage or 'Auto-Commit by BibTeX VCS')
         if self.hasRemote:
             self.callHg('push')
-        self.db.reload()
+        self.database.reload()
         self.hgid = self.callHg('id', '-i')
         return True
 
@@ -232,19 +273,10 @@ class MercurialInterface(VCSInterface):
                            ).decode().splitlines()
 
     @classmethod
-    def clone(cls, url, target, username=None, password=None):
-        cls._callHg('clone', url, target, username=username, password=password)
+    def clone(cls, url, target, login=None):
+        if login is None:
+            login = Login()
+        cls._callHg('clone', url, target, login=login)
 
 
-class NoVCSInterface(VCSInterface):
-    """Dummy VCS interface for the case of a database that is not under version control."""
-
-    vcsType = None
-
-    def __getattribute__(self, name):
-        if name in ("add", "localChanges", "update", "commit"):
-            return lambda *args, **kwargs: False
-        return VCSInterface.__getattribute__(self, name)
-
-    def revision(self):
-        return None, None
+VCSInterface.registerVCSType('mercurial', MercurialInterface)

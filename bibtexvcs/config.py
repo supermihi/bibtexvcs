@@ -53,49 +53,61 @@ def ensureInit(func):
 
 
 @ensureInit
-def setDefaultDatabase(db):
+def setDefaultDatabase(database):
     """Sets the default database."""
-    if db.directory not in _config.sections():
-        _config[db.directory] = {}
+    if sectionKey(database) not in _config.sections():
+        _config[sectionKey(database)] = {}
     for section in _config.sections():
         if _config.getboolean(section, 'default', fallback=False):
             del _config[section]['default']
-    _config[db.directory]['default'] = 'yes'
+    _config[sectionKey(database)]['default'] = 'yes'
 
 
 @ensureInit
-def getDefaultDatabase():
-    """Return the default database, or None if the config file is empty."""
-    from bibtexvcs.database import Database
-    try:
-        for section in _config.sections():
-            if _config.getboolean(section, 'default', fallback=False):
-                return Database(section)
-        # fallback: open last in config file
-        return Database(_config.sections[-1])
-    except Exception as e:
-        print(e)
-        return None
+def getDefaultDirectory():
+    """Return the directory of the default database, or ``None`` if it is not set.
+    """
+    for section in _config.sections():
+        if _config.getboolean(section, 'default', fallback=False):
+            return section
+    if len(_config.sections) > 0:
+        # fallback: open last in config file (=last one added, most likely to be useful)
+        return _config.sections[-1]
+    return None
+
+
+def sectionKey(database):
+    """Return the key of the config section that corresponds to `database`.
+
+    In current implementation, the database directory is used as key.
+    """
+    return database.directory
 
 
 @ensureInit
-def setAuthInformation(db):
+def storeLogin(database, username, password):
     """Set username / password information for the given database."""
-    if db.directory not in _config.sections():
-        _config[db.directory] = {}
-    _config[db.directory]['username'] = db.vcs.username
-    _config[db.directory]['password'] = db.vcs.password
+    key = sectionKey(database)
+    if key not in _config.sections():
+        _config[key] = {}
+    _config[key]['username'] = username
+    _config[key]['password'] = password
 
 
 @ensureInit
-def getAuthInformation(db):
-    """Return a pair of `(username, password)` for the given database, or ``None`` if it is not
-    set.
+def getLogin(database):
+    """Return login information for the given database.
+
+    Returns
+    -------
+    (username, password)
+        Pair of username / password information. Both might be ``None`` if not stored.
     """
     try:
-        return _config[db.directory]['username'], _config[db.directory]['password']
+        section = _config[sectionKey(database)]
+        return section.get('username'), section.get('password')
     except KeyError:
-        return None
+        return None, None
 
 
 @atexit.register
