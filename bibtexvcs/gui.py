@@ -54,9 +54,15 @@ def jabrefIcon():
 
 class BtVCSGui(QtWidgets.QWidget):
     """Main window of the BibTeX VCS GUI application.
+
+    Parameters
+    ----------
+    database : :class:`.Database` or str, optional
+        Optional database to initialize the GUI with. If left out, opens the default database (if
+        such exists) or starts without an open database otherwise.
     """
 
-    def __init__(self):
+    def __init__(self, database=None):
         super(BtVCSGui, self).__init__()
         self.setWindowTitle('BibTeX VCS')
         self.guiIsComplete = False
@@ -66,9 +72,17 @@ class BtVCSGui(QtWidgets.QWidget):
 
         self._database = None
         self.show()
-        self._runAsync('Opening previous database ...',
-                      self.loadDefaultDatabase,
-                      Database.getDefault)
+        if isinstance(database, Database):
+            self.setDatabase(database)
+        elif database is None:
+            self._runAsync('Loading default database ...',
+                          self.loadDatabase,
+                          Database.getDefault)
+        else:
+            self._runAsync('Loading database ...',
+                           self.loadDatabase,
+                           Database,
+                           database)
 
     def _initGUI(self):
         """Initializes GUI components before opening any database.
@@ -78,7 +92,7 @@ class BtVCSGui(QtWidgets.QWidget):
         loaded.
         """
         assert not self.guiIsComplete
-        self.dbLabel = QtWidgets.QLabel('Please open a database')
+        self.dbLabel = QtWidgets.QLabel('Please open or clone a BibTeX VCS database')
         dbSelectionButton = QtWidgets.QPushButton(standardIcon(self, 'SP_DialogOpenButton'), '&Open')
         dbSelectionButton.setToolTip('Open existing local checkout of a BibTeX VCS database')
         dbSelectionButton.clicked.connect(self.showOpenDatabaseDialog)
@@ -137,14 +151,14 @@ class BtVCSGui(QtWidgets.QWidget):
         self.progressDialog.setCancelButtonText(nullString)
         self.progressDialog.setWindowModality(Qt.WindowModal)
 
-    def loadDefaultDatabase(self):
-        """Opens the default database as defined in :mod:`bibtexvcs`'s config file. If no default
-        database is configured, nothing happens.
+    def loadDatabase(self):
+        """Loads the database that was instanciated asynchronously and is available in
+        :attr:`future`.
         """
         with self.catchExceptions():
-            defaultDatabase = self.future.result()
-            if defaultDatabase:
-                self.setDatabase(defaultDatabase)
+            database = self.future.result()
+            if database:
+                self.setDatabase(database)
 
     def setDatabase(self, database):
         """Set the current database to `database`.
@@ -542,10 +556,7 @@ class LoginDialog(QtWidgets.QDialog):
         return None
 
 
-def run():
-    if len (sys.argv) > 1 and sys.argv[1] == '-j':
-        config.getDefaultDatabase().runJabref()
-        sys.exit(0)
+def run(database=None):
     import bibtexvcs, pkg_resources
     from distutils.version import StrictVersion
     app = QtWidgets.QApplication(sys.argv)
@@ -564,7 +575,7 @@ def run():
             window.show()
             window.accepted.connect(app.exit)
     if window is None:
-        window = BtVCSGui()
+        window = BtVCSGui(database)
     app.exec_()
 
 if __name__ == '__main__':

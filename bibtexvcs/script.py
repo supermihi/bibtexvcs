@@ -10,7 +10,6 @@ from __future__ import division, print_function, unicode_literals
 import argparse, io
 
 from bibtexvcs.database import Database
-from bibtexvcs import config
 
 
 def export(args):
@@ -37,23 +36,43 @@ def check(args):
 
 
 def script():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--database', metavar='DB', help='database root directory')
-    subparsers = parser.add_subparsers(title='Commands')
-    parser_export = subparsers.add_parser('export', help='export database using a template')
-    parser_export.add_argument('--template', help='template file')
-    parser_export.add_argument('--docs', help='documents root path')
-    parser_export.add_argument('output', help='output file')
-    parser_export.set_defaults(func=export)
-    parser_check = subparsers.add_parser('check', help='check database consistency')
-    parser_check.set_defaults(func=check)
+    """Command-line script that allows to export a database and run checks."""
+    desc = ('Command-line interface to the BibTeX VCS package. Can be used to run the GUI, run '
+            'JabRef configured for a specified BibTeX VCS database, export a database using '
+            'templates (e.g. HTML output), or run database sanity checks.')
+    parser = argparse.ArgumentParser(description=desc)
+    parser.add_argument(
+        '-d', '--database', metavar='DB',
+        help='specify database root directory. If left out, the default database is used'
+    )
+
+    parser.add_argument('mode', choices=('gui', 'jabref', 'export', 'check'),
+                        help='choose mode of operation (default: gui)',
+                        default='gui',
+                        nargs='?')
+
+    exportGroup = parser.add_argument_group('exporting options (only in "export" mode)')
+    exportGroup.add_argument('--template', help='template file')
+    exportGroup.add_argument('--docs', help='documents root path')
+    exportGroup.add_argument('output', nargs='?', help='output file')
 
     args = parser.parse_args()
-    if args.database:
-        args.db = Database(args.database)
+    if args.mode == 'gui':
+        import bibtexvcs.gui
+        bibtexvcs.gui.run(args.database)
     else:
-        args.db = config.getDefaultDatabase()
-    args.func(args)
+        # load database. We don't load it before starting the GUI because the GUI will display
+        # a progress bar while loading the database by itself.
+        if args.database:
+            args.db = Database(args.database)
+        else:
+            args.db = Database.getDefault()
+        if args.mode == 'export':
+            export(args)
+        elif args.mode == 'jabref':
+            args.db.runJabref()
+        elif args.mode == 'check':
+            check(args)
 
 if __name__ == '__main__':
     script()

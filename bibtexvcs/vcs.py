@@ -178,7 +178,7 @@ class MercurialInterface(VCSInterface):
     cmdline = ['hg', '--noninteractive', '--config', 'auth.x.prefix=*']
 
     def __init__(self, *args, **kwargs):
-        super(MercurialInterface, self).__init__(*args, **kwargs)
+        VCSInterface.__init__(self, *args, **kwargs)
         try:
             self.hasRemote = len(self.callHg('showconfig', 'paths.default')) > 0
         except subprocess.CalledProcessError:

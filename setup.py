@@ -39,7 +39,7 @@ setup(
     author='Michael Helmling',
     author_email='michaelhelmling@posteo.de',
     classifiers=[
-      'Development Status :: 3 - Alpha',
+      'Development Status :: 4 - Beta',
       'Intended Audience :: Science/Research',
       'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
       'Operating System :: OS Independent',
@@ -51,8 +51,7 @@ setup(
     keywords='bibliography bibtex jabref',
     packages=find_packages(),
     install_requires=requires,
-    entry_points={ 'gui_scripts'     : ['btvcs = bibtexvcs.gui:run'],
-                   'console_scripts' : ['cbtvcs = bibtexvcs.script:script'] },
+    entry_points=dict(gui_scripts=['btvcs = bibtexvcs.script:script']),
     include_package_data=True,
     test_suite='test'
 )
