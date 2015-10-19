@@ -62,7 +62,7 @@ html_theme = 'alabaster'
 html_theme_options = {
     'description': "A collection of scripts to manage a BibTeX based literature database in a subversion repository",
     'github_user': 'supermihi',
-    'github_repo': 'lpdec',
+    'github_repo': 'bibtexvcs',
 }
 html_sidebars = {
     '**': [
