@@ -60,7 +60,7 @@ rst_epilog = """
 """
 html_theme = 'alabaster'
 html_theme_options = {
-    'description': "LP decoding package",
+    'description': "A collection of scripts to manage a BibTeX based literature database in a subversion repository",
     'github_user': 'supermihi',
     'github_repo': 'lpdec',
 }
@@ -77,5 +77,5 @@ html_static_path = ['_static']
 htmlhelp_basename = 'bibtexvcsdoc'
 
 intersphinx_mapping = {
-    'python': ('http://docs.python.org/3.4', None),
+    'python': ('http://docs.python.org/3.5', None),
 }
