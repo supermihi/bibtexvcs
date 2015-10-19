@@ -556,14 +556,15 @@ class LoginDialog(QtWidgets.QDialog):
 
 
 def run(database=None):
-    import bibtexvcs, pkg_resources
+    import bibtexvcs
     from distutils.version import StrictVersion
     app = QtWidgets.QApplication(sys.argv)
     window = None
+
     newVersion = bibtexvcs.pypiVersion()
     if newVersion:
         newVersion = StrictVersion(newVersion)
-        myVersion = StrictVersion(pkg_resources.get_distribution('bibtexvcs').version)
+        myVersion = StrictVersion(bibtexvcs.__version__)
         if newVersion > myVersion:
             window = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Critical,
                                            "New version available",

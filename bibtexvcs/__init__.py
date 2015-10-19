@@ -14,7 +14,9 @@ __version__ = '2015.4'
 
 
 def pypiVersion():
-    """Return the current version of this package on PyPI."""
+    """Return the current version of this package on PyPI, or ``None`` in case of connection
+    problems.
+    """
     if sys.version_info.major == 2:
         import urllib2
         from urllib2 import URLError

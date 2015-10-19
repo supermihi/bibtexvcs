@@ -14,7 +14,7 @@ import configparser, io, os, subprocess
 from collections import OrderedDict
 from os.path import join, exists, relpath
 
-from pkg_resources import resource_string, resource_filename, get_distribution
+from pkg_resources import resource_string, resource_filename
 
 from bibtexvcs.bibfile import BibFile, MacroReference
 from bibtexvcs.vcs import VCSInterface
@@ -242,7 +242,7 @@ class Database:
 
     def export(self, templateString=None, docDir=None):
         """Exports the BibTeX database to a string by using the jinja template engine."""
-        import datetime, hashlib
+        import datetime, hashlib, bibtexvcs
         try:
             import jinja2
         except ImportError:
@@ -260,7 +260,7 @@ class Database:
         import locale
         locale.setlocale(locale.LC_ALL, '')
         now = datetime.datetime.now().strftime('%c')
-        version = get_distribution('bibtexvcs').version
+        version = bibtexvcs.__version__
         return template.render(database=self, docDir=docDir, version=version, revision=revision, now=now)
 
 
