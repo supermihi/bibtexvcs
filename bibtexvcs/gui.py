@@ -37,7 +37,6 @@ except ImportError:
 
 from bibtexvcs.vcs import MergeConflict, AuthError, VCSNotFoundError, VCSInterface
 from bibtexvcs.database import Database, Journal, JournalsFile, DatabaseFormatError
-from bibtexvcs import config
 from pkg_resources import resource_filename
 
 
