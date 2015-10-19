@@ -576,6 +576,8 @@ def run(database=None):
             window.accepted.connect(app.exit)
     if window is None:
         window = BtVCSGui(database)
+    if QT5:
+        app.setStyle('fusion')
     app.exec_()
 
 if __name__ == '__main__':
