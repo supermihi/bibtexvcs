@@ -567,11 +567,10 @@ def run(database=None):
         myVersion = StrictVersion(bibtexvcs.__version__)
         if newVersion > myVersion:
             window = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Critical,
-                                           "New version available",
-                                           "A new version of BibTeX VCS ({}) is available. "
-                                           "Please update (pip install -U --user bibtexvcs), "
-                                           "then start again.".format(newVersion),
-                                           QtWidgets.QMessageBox.Ok)
+                                           'New version available',
+                                           'A new version of BibTeX VCS ({}) is available. '
+                                           'Please update and start again.'
+                                           .format(newVersion), QtWidgets.QMessageBox.Ok)
             window.show()
             window.accepted.connect(app.exit)
     if window is None:
