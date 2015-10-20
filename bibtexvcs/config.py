@@ -70,7 +70,7 @@ def getDefaultDirectory():
     for section in _config.sections():
         if _config.getboolean(section, 'default', fallback=False):
             return section
-    if len(_config.sections) > 0:
+    if len(_config.sections()) > 0:
         # fallback: open last in config file (=last one added, most likely to be useful)
         return _config.sections[-1]
     return None
