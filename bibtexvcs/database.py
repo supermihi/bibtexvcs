@@ -28,6 +28,9 @@ class DatabaseFormatError(Exception):
     """
     pass
 
+class NoDefaultDatabaseError(Exception):
+    """Raised when the default database is requested but none exists."""
+
 
 class Database:
     """Represents a complete literature database.
@@ -119,7 +122,7 @@ class Database:
         from bibtexvcs import config
         directory = config.getDefaultDirectory()
         if directory is None:
-            raise RuntimeError('No default database configured')
+            raise NoDefaultDatabaseError('No default database configured')
         return cls(directory)
 
     @property

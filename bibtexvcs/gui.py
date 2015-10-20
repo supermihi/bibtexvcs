@@ -36,7 +36,7 @@ except ImportError:
         QtWidgets = QtGui
 
 from bibtexvcs.vcs import MergeConflict, AuthError, VCSNotFoundError, VCSInterface
-from bibtexvcs.database import Database, Journal, JournalsFile, DatabaseFormatError
+from bibtexvcs.database import Database, Journal, JournalsFile, DatabaseFormatError, NoDefaultDatabaseError
 from pkg_resources import resource_filename
 
 
@@ -155,9 +155,12 @@ class BtVCSGui(QtWidgets.QWidget):
         :attr:`future`.
         """
         with self.catchExceptions():
-            database = self.future.result()
-            if database:
-                self.setDatabase(database)
+            try:
+                database = self.future.result()
+                if database:
+                    self.setDatabase(database)
+            except NoDefaultDatabaseError:
+                pass
 
     def setDatabase(self, database):
         """Set the current database to `database`.
