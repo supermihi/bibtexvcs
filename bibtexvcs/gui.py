@@ -273,8 +273,7 @@ class BtVCSGui(QtWidgets.QWidget):
         """
         cloneDialog = CloneDialog(self)
         if cloneDialog.exec_() == cloneDialog.Accepted:
-            self._cloneDB_init(cloneDialog.url(), cloneDialog.target(), cloneDialog.vcsType(),
-                               cloneDialog.login())
+            self._cloneDB_init(cloneDialog.url(), cloneDialog.target(), cloneDialog.vcsType())
 
     def _cloneDB_init(self, url, target, vcsType, *args, **kwargs):
         """Initialize asynchronous cloning of a (remote) database.
@@ -521,6 +520,14 @@ class CloneDialog(QtWidgets.QDialog):
         ok = all((edit.text().strip() != '' for edit in (self.targetEdit, self.urlEdit)))
         self.btbx.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(ok)
 
+    def url(self):
+        return self.urlEdit.text()
+
+    def target(self):
+        return self.targetEdit.text()
+
+    def vcsType(self):
+        return self.vcsTypeChooser.currentText()
 
 class LoginDialog(QtWidgets.QDialog):
 
@@ -577,7 +584,7 @@ def run(database=None):
             window.show()
             window.accepted.connect(app.exit)
     if window is None:
-        window = BtVCSGui(database)
+        window = BtVCSGui(database)  # bind Qt object to variable to avoid garbage collection
     if QT5:
         app.setStyle('fusion')
     app.exec_()
