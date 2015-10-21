@@ -197,7 +197,7 @@ class Database:
                       (self.abbrJournalsName, self.fullJournalsName)]
         if not exists(full) or not exists(abbr) or \
                         os.path.getmtime(self.journalsPath) > os.path.getmtime(abbr):
-            self.journals.writeBibfiles(self.bibfileName[:-4])
+            self.journals.writeBibfiles(self.bibfilePath[:-4])
 
     def runJabref(self):
         """Tries to open this database's ``.bib`` file with `JabRef`_. Will do the following:
@@ -335,7 +335,7 @@ class JournalsFile(OrderedDict):
         with io.open(filename, 'w', encoding='UTF-8', newline='\n') as journalfile:
             config.write(journalfile)
 
-    def writeBibfiles(self, basename):
+    def writeBibfiles(self, basepath):
         """Creates two ``.bib`` files that contain macro definitions for all journals defined in
         this file, resolving to the full and abbreviated journal names, respectively.
 
@@ -343,7 +343,7 @@ class JournalsFile(OrderedDict):
         ``<basename>_full.bib`` and ``<basename>_abbr.bib``, respectively.
         """
         for jrnlType in 'full', 'abbr':
-            outFile = '{}_{}.bib'.format(basename, jrnlType)
+            outFile = '{}_{}.bib'.format(basepath, jrnlType)
             with io.open(outFile, 'w', encoding='UTF-8') as bibfile:
                 for journal in self.values():
                     bibfile.write('@STRING{' + journal.macro + ' = {' + getattr(journal, jrnlType)
