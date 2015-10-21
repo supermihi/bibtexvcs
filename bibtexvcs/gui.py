@@ -248,7 +248,7 @@ class BtVCSGui(QtWidgets.QWidget):
                 ans = LoginDialog.getLogin(self, str(a))
                 if ans:
                     login, storeLogin = ans
-                    self._database.vcs.setLogin(login)
+                    self._database.vcs.login = login
                     if storeLogin:
                         self._database.vcs.storeLogin()
                     onAuthEntered()
