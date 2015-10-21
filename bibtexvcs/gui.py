@@ -35,7 +35,7 @@ except ImportError:
         from PySide.QtGui import QIcon
         QtWidgets = QtGui
 
-from bibtexvcs.vcs import MergeConflict, AuthError, VCSNotFoundError, VCSInterface
+from bibtexvcs.vcs import MergeConflict, AuthError, VCSNotFoundError, VCSInterface, Login
 from bibtexvcs.database import Database, Journal, JournalsFile, DatabaseFormatError, NoDefaultDatabaseError
 from pkg_resources import resource_filename
 
@@ -246,10 +246,10 @@ class BtVCSGui(QtWidgets.QWidget):
         except AuthError as a:
             if onAuthEntered is not None:
                 ans = LoginDialog.getLogin(self, str(a))
-                if ans is not None:
-                    self._database.vcs.setLogin(ans['login'])
-                    store = ans['storeLogin']
-                    if store:
+                if ans:
+                    login, storeLogin = ans
+                    self._database.vcs.setLogin(login)
+                    if storeLogin:
                         self._database.vcs.storeLogin()
                     onAuthEntered()
                     return
@@ -557,11 +557,19 @@ class LoginDialog(QtWidgets.QDialog):
 
     @staticmethod
     def getLogin(parent=None, message=None):
+        """Convenience method to return login information.
+
+        Returns
+        -------
+        (Login, bool)
+            Tuple of Login object and a bool whether "store login" was checked, or ``None`` if
+            dialog was cancelled.
+        """
         dialog = LoginDialog(parent=parent, message=message)
         if dialog.exec_() == dialog.Accepted:
-            return dict(username=dialog.userEdit.text(),
-                        password=dialog.passEdit.text(),
-                        storeLogin=dialog.storeBox.isChecked())
+            login = Login(uername=dialog.userEdit.text(), password=dialog.passEdit.text())
+            storeLogin = dialog.storeBox.isChecked()
+            return login, storeLogin
         return None
 
 
