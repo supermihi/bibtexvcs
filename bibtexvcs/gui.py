@@ -567,7 +567,7 @@ class LoginDialog(QtWidgets.QDialog):
         """
         dialog = LoginDialog(parent=parent, message=message)
         if dialog.exec_() == dialog.Accepted:
-            login = Login(uername=dialog.userEdit.text(), password=dialog.passEdit.text())
+            login = Login(dialog.userEdit.text(), dialog.passEdit.text())
             storeLogin = dialog.storeBox.isChecked()
             return login, storeLogin
         return None
