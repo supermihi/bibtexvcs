@@ -51,7 +51,7 @@ class VCSInterface:
         """
         return self.database.directory
 
-    def storeLogin(self, login):
+    def storeLogin(self):
         """Permanently store login information for this repository.
         """
         config.storeLogin(self.database, self.login.username, self.login.password)

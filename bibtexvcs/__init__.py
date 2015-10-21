@@ -10,7 +10,7 @@
 from __future__ import division, print_function, unicode_literals
 import sys
 
-__version__ = '2015.10'
+__version__ = '2015.11'
 
 
 def pypiVersion():
