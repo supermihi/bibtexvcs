@@ -15,7 +15,6 @@ from contextlib import contextmanager
 
 # we support PyQt5, PyQt4 and PySide - this import hell allows the rest of the module to be
 # (almost) binding-agnostic
-nullString = None
 try:
     from PyQt5 import QtWidgets, QtCore
     from PyQt5.QtCore import Qt
@@ -28,7 +27,6 @@ except ImportError:
         from PyQt4.QtCore import Qt
         from PyQt4.QtGui import QIcon
         QtWidgets = QtGui
-        nullString = QtCore.QString()
     except ImportError:
         from PySide import QtGui, QtCore
         from PySide.QtCore import Qt
@@ -147,7 +145,7 @@ class BtVCSGui(QtWidgets.QWidget):
         self.futureTimer.timeout.connect(self._updateFuture)
         self.progressDialog = QtWidgets.QProgressDialog(self)
         self.progressDialog.setRange(0, 0)
-        self.progressDialog.setCancelButtonText(nullString)
+        self.progressDialog.setCancelButtonText(None)
         self.progressDialog.setWindowModality(Qt.WindowModal)
 
     def loadDatabase(self):
