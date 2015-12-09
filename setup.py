@@ -35,7 +35,7 @@ setup(
     version=version,
     description="a Python package for managing a BibTeX database and related documents",
     long_description=long_description,
-    url='http://github.com/supermihi/bibtevxcs',
+    url='http://github.com/supermihi/bibtexvcs',
     author='Michael Helmling',
     author_email='michaelhelmling@posteo.de',
     classifiers=[
